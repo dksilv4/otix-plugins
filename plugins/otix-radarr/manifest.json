@@ -2,7 +2,7 @@
   "name": "Radarr Sync",
   "version": "1.0.0",
   "description": "Sync an Otix list with Radarr. Add movies to your Otix list and they auto-download.",
-  "author": "Otix Community",
+  "author": "Diogo da Silva",
   "repository": "https://github.com/otix-community/otix-radarr",
   "min_app_version": "0.3.0",
   "permissions": [
