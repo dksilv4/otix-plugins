@@ -1,0 +1,33 @@
+{
+  "plugins": [
+    {
+      "id": "otix-radarr",
+      "name": "Radarr Sync",
+      "version": "1.0.0",
+      "description": "Sync an Otix list with Radarr. Add movies to your watchlist and they auto-download via Radarr with full quality profile and root folder configuration.",
+      "author": "Otix Community",
+      "repository": "https://github.com/dksilv4/otix-plugins",
+      "path": "plugins/otix-radarr",
+      "icon": "film",
+      "category": "media",
+      "tags": ["radarr", "movies", "automation", "download"],
+      "min_app_version": "0.3.0",
+      "permissions": ["api:proxy", "network:external", "events:subscribe", "storage:local", "notifications", "ui:settings"]
+    },
+    {
+      "id": "otix-hello",
+      "name": "Hello World",
+      "version": "1.0.0",
+      "description": "A test plugin that validates the Otix plugin system by demonstrating event subscriptions, local database, API calls, notifications, and logging.",
+      "author": "Otix Team",
+      "repository": "https://github.com/dksilv4/otix-plugins",
+      "path": "plugins/otix-hello",
+      "icon": "code",
+      "category": "developer",
+      "tags": ["test", "demo", "development"],
+      "min_app_version": "0.3.0",
+      "permissions": ["api:proxy", "events:subscribe", "storage:local", "notifications", "ui:settings"]
+    }
+  ],
+  "updated_at": "2026-06-17T00:00:00Z"
+}
