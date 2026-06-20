@@ -149,13 +149,19 @@ async function batchEnrichCatalog(token, items, ctx) {
         const { status, data } = await apiGet(CATALOG_HOST, path, token);
         if (status === 200 && data) {
           for (const [id, catItem] of Object.entries(data)) {
+            const sellerId = catItem.seller?.id || null;
+            const sellerName = catItem.seller?.name || null;
             enriched[id] = {
               title: catItem.title || null,
-              developer: catItem.developerDisplayName || (catItem.seller && catItem.seller.name) || null,
-              publisher: catItem.publisherDisplayName || (catItem.seller && catItem.seller.name) || null,
+              developer: catItem.developerDisplayName || sellerName || null,
+              developerId: sellerId,  // Epic account ID of the developer/company
+              publisher: catItem.publisherDisplayName || sellerName || null,
               keyImages: catItem.keyImages || [],
               description: catItem.description || null,
               categories: catItem.categories || [],
+              sellerName: sellerName,
+              // External reference for the developer company
+              external_ids: sellerId ? [{ source: 'epic', id: sellerId, entity_type: 'company', name: sellerName }] : [],
             };
           }
         }
@@ -206,10 +212,37 @@ async function scanLocalInstalls(ctx) {
         const raw = fs.readFileSync(path.join(manifestDir, file), 'utf-8');
         const m = JSON.parse(raw);
         if (m.AppName) {
+          const installPath = m.InstallLocation || null;
+          // Derive save game paths from common patterns
+          const savePaths = [];
+          if (installPath) {
+            // Common Epic save locations relative to install
+            const savedDir = path.join(installPath, 'Saved');
+            if (fs.existsSync(savedDir)) savePaths.push(savedDir);
+
+            // %LOCALAPPDATA%/<GameName>/Saved/SaveGames
+            const localAppData = process.env.LOCALAPPDATA;
+            if (localAppData) {
+              const localSave = path.join(localAppData, m.AppName, 'Saved', 'SaveGames');
+              if (fs.existsSync(localSave)) savePaths.push(localSave);
+            }
+
+            // Documents/My Games/<GameName>
+            const documents = path.join(process.env.USERPROFILE || '', 'Documents', 'My Games', m.AppName);
+            if (fs.existsSync(documents)) savePaths.push(documents);
+
+            // Saved Games/<GameName>
+            const savedGames = path.join(process.env.USERPROFILE || '', 'Saved Games', m.AppName);
+            if (fs.existsSync(savedGames)) savePaths.push(savedGames);
+          }
+
           installedMap[m.AppName] = {
-            install_path: m.InstallLocation || null,
+            install_path: installPath,
             install_size: m.InstallSize || null,
             version: m.AppVersionString || null,
+            launch_executable: m.LaunchExecutable || null,
+            manifest_location: m.ManifestLocation || null,
+            save_paths: savePaths.length > 0 ? savePaths : null,
           };
         }
       } catch (err) {
@@ -362,10 +395,18 @@ async function performScan(ctx) {
       catalogItemId: item.catalogItemId || null,
       title,
       developer: item.developer || null,
+      developerId: null,  // populated by catalog enrichment
       isInstalled: !!local.install_path,
       installPath: local.install_path || null,
       installSize: local.install_size || null,
       version: local.version || null,
+      launchExe: local.launch_executable || null,
+      manifestLocation: local.manifest_location || null,
+      savePaths: local.save_paths || null,
+      // Epic posterUrl set during enrichment below — always available
+      // as fallback until Otix/SGDB poster replaces it after matching
+      posterUrl: null,
+      logoUrl: null,
     });
 
     if ((i + 1) % 50 === 0 || i === libraryItems.length - 1) {
@@ -390,6 +431,9 @@ async function performScan(ctx) {
         if (e.title) g.title = e.title;
         if (e.developer) g.developer = e.developer;
         if (e.publisher) g.publisher = e.publisher;
+        if (e.developerId) g.developerId = e.developerId;
+        if (e.sellerName) g.sellerName = e.sellerName;
+        if (e.external_ids?.length) g.developerExternalIds = e.external_ids;
         const posterUrl = e.keyImages?.find((img) =>
           img.type === 'DieselStoreFrontWide' || img.type === 'Thumbnail'
         )?.url;
@@ -501,7 +545,15 @@ const dataMethods = {
   'match.batch': async (ctx, games) => {
     if (!games || !games.length) return { success: false, error: 'No games provided', matches: [] };
 
+    // Build a lookup map of appName → scan game for poster fallback
+    const scanGameByAppName = {};
+    for (const g of games) {
+      const key = g.appName || g.catalogItemId || '';
+      if (key) scanGameByAppName[key] = g;
+    }
+
     const batchGames = games.map((g) => ({
+      query_id: 'epic:' + (g.appName || g.catalogItemId || ''),
       title: g.title || g.appName || '',
       developer: g.developer || g.publisher || null,
       publisher: g.publisher || g.developer || null,
@@ -511,10 +563,60 @@ const dataMethods = {
 
     try {
       const result = await ctx.api.post('/media/match/batch', { games: batchGames });
-      return { success: true, matches: result.matches || result || [] };
+      const matches = (result.matches || result || []).map((m, i) => {
+        const scanGame = games[i] || {};
+        // Inject Epic poster as fallback so UI shows image even for
+        // needs_import candidates where IGDB cover might be missing
+        if (m.candidates) {
+          for (const c of m.candidates) {
+            if (!c.poster_url && scanGame.posterUrl) {
+              c.poster_url = scanGame.posterUrl;
+            }
+          }
+        }
+        if (m.auto_match && !m.auto_match.poster_url && scanGame.posterUrl) {
+          m.auto_match.poster_url = scanGame.posterUrl;
+        }
+        return {
+          ...m,
+          _epic_poster_url: scanGame.posterUrl || null,
+          _epic_logo_url: scanGame.logoUrl || null,
+        };
+      });
+      return { success: true, matches };
     } catch (err) {
       ctx.logger.error('match.batch failed: ' + err.message);
       return { success: false, error: err.message, matches: [] };
+    }
+  },
+
+  'match.confirm': async (ctx, params) => {
+    if (!params || !params.query_id) return { success: false, error: 'query_id required' };
+
+    try {
+      const result = await ctx.api.post('/media/match/confirm', {
+        query_id: params.query_id,
+        media_item_id: params.media_item_id || null,
+        igdb_id: params.igdb_id || null,
+        rejected: params.rejected || false,
+        rejected_permanently: params.rejected_permanently || false,
+      });
+      return { success: result.success, media_item_id: result.media_item_id, error: result.error };
+    } catch (err) {
+      ctx.logger.error('match.confirm failed: ' + err.message);
+      return { success: false, error: err.message };
+    }
+  },
+
+  'match.unlink': async (ctx, queryId) => {
+    if (!queryId) return { success: false, error: 'query_id required' };
+
+    try {
+      const result = await ctx.api.get('/media/match/unlink?query_id=' + encodeURIComponent(queryId));
+      return { success: result.success, error: result.error };
+    } catch (err) {
+      ctx.logger.error('match.unlink failed: ' + err.message);
+      return { success: false, error: err.message };
     }
   },
 };
@@ -561,6 +663,8 @@ module.exports = {
   'scan': dataMethods['scan'],
   'scan.status': dataMethods['scan.status'],
   'match.batch': dataMethods['match.batch'],
+  'match.confirm': dataMethods['match.confirm'],
+  'match.unlink': dataMethods['match.unlink'],
 
   slotRender: async (ctx, slotName) => {
     if (slotName === 'matching:scan') {
@@ -573,6 +677,7 @@ module.exports = {
           status: 'status',
           scan: 'scan',
           match: 'match.batch',
+          confirm: 'match.confirm',
         },
       };
     }
@@ -589,6 +694,7 @@ module.exports = {
         logout: 'auth.logout',
         scan: 'scan',
         match: 'match.batch',
+        confirm: 'match.confirm',
       },
     };
   },
