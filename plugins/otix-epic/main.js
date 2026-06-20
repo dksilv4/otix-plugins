@@ -451,6 +451,14 @@ async function performScan(ctx) {
   _setProgress(ctx, { phase: 'done', current: games.length, total: games.length });
   ctx.logger.info('Scan complete: ' + games.length + ' games, ' + games.filter((g) => g.isInstalled).length + ' installed' + (skipped > 0 ? ', ' + skipped + ' skipped (UE/Quixel/MetaHuman)' : ''));
 
+  // Persist scan summary so React doesn't re-scan on every page mount
+  const scanSummary = {
+    last_scan_total: games.length,
+    last_scan_installed: games.filter((g) => g.isInstalled).length,
+    last_scan_at: Date.now(),
+  };
+  await ctx.config.set('_last_scan', JSON.stringify(scanSummary));
+
   return {
     success: true,
     total: games.length,
@@ -630,16 +638,35 @@ module.exports = {
   status: async (ctx) => {
     try {
       const rt = await _getRt(ctx);
-      if (!rt) return { connected: false, account_id: null, display_name: null };
+      if (!rt) return { connected: false, account_id: null, display_name: null, last_scan_total: 0, last_scan_at: null };
 
       const token = await _ensureToken(ctx);
-      if (!token) return { connected: false, account_id: null, display_name: null };
+      if (!token) return { connected: false, account_id: null, display_name: null, last_scan_total: 0, last_scan_at: null };
 
       const accountId = await ctx.config.get('account_id');
       const displayName = await ctx.config.get('display_name');
-      return { connected: true, account_id: accountId, display_name: displayName };
+
+      // Read persisted scan summary to avoid redundant re-scans on page mount
+      let lastScanTotal = 0;
+      let lastScanAt = null;
+      try {
+        const raw = await ctx.config.get('_last_scan');
+        if (raw) {
+          const summary = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          lastScanTotal = summary.last_scan_total || 0;
+          lastScanAt = summary.last_scan_at || null;
+        }
+      } catch { /* ignore parse errors */ }
+
+      return {
+        connected: true,
+        account_id: accountId,
+        display_name: displayName,
+        last_scan_total: lastScanTotal,
+        last_scan_at: lastScanAt,
+      };
     } catch {
-      return { connected: false, account_id: null, display_name: null };
+      return { connected: false, account_id: null, display_name: null, last_scan_total: 0, last_scan_at: null };
     }
   },
 
