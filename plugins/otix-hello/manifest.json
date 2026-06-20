@@ -1,10 +1,9 @@
 {
   "name": "Hello World",
-  "version": "1.0.0",
+  "version": "0.3.0.1",
   "description": "A test plugin that validates the Otix plugin system by demonstrating API calls, event subscriptions, notifications, config, and logging.",
   "author": "Diogo da Silva",
   "repository": "https://github.com/otix/otix-hello",
-  "min_app_version": "0.3.0",
   "permissions": ["api:proxy", "events:subscribe", "storage:local", "notifications", "ui:settings"],
   "config": {
     "greeting": { "type": "string", "label": "Greeting message", "default": "Hello from Otix Plugin!" },

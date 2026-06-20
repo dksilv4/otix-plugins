@@ -1,23 +1,35 @@
 {
   "plugins": [
     {
+      "id": "otix-epic",
+      "name": "Epic Games Store",
+      "version": "0.1.0",
+      "description": "Sync your Epic Games Store library to Otix. Auto-import owned games, track playtime, and get notified about free weekly games.",
+      "author": "Diogo da Silva",
+      "repository": "https://github.com/dksilv4/otix-plugins",
+      "path": "plugins/otix-epic",
+      "icon": "gamepad-2",
+      "category": "media",
+      "tags": ["epic", "games", "library", "legendary"],
+      "permissions": ["api:proxy", "network:external", "events:subscribe", "storage:local", "notifications", "ui:settings"]
+    },
+    {
       "id": "otix-radarr",
       "name": "Radarr Sync",
-      "version": "1.0.0",
-      "description": "Sync an Otix list with Radarr. Add movies to your watchlist and they auto-download via Radarr with full quality profile and root folder configuration.",
+      "version": "0.3.0.2",
+      "description": "Sync an Otix list with multiple Radarr instances. Add movies to your watchlist and they auto-download with full quality profile and root folder configuration.",
       "author": "Diogo da Silva",
       "repository": "https://github.com/dksilv4/otix-plugins",
       "path": "plugins/otix-radarr",
       "icon": "film",
       "category": "media",
       "tags": ["radarr", "movies", "automation", "download"],
-      "min_app_version": "0.3.0",
       "permissions": ["api:proxy", "network:external", "events:subscribe", "storage:local", "notifications", "ui:settings"]
     },
     {
       "id": "otix-hello",
       "name": "Hello World",
-      "version": "1.0.0",
+      "version": "0.3.0.1",
       "description": "A test plugin that validates the Otix plugin system by demonstrating event subscriptions, local database, API calls, notifications, and logging.",
       "author": "Diogo da Silva",
       "repository": "https://github.com/dksilv4/otix-plugins",
@@ -25,9 +37,8 @@
       "icon": "code",
       "category": "developer",
       "tags": ["test", "demo", "development"],
-      "min_app_version": "0.3.0",
       "permissions": ["api:proxy", "events:subscribe", "storage:local", "notifications", "ui:settings"]
     }
   ],
-  "updated_at": "2026-06-17T00:00:00Z"
+  "updated_at": "2026-06-18T00:00:00Z"
 }

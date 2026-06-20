@@ -1,0 +1,56 @@
+{
+  "name": "Epic Games Scanner",
+  "version": "1.0.0",
+  "description": "Scan and match your Epic Games library with Otix media items. Login via OAuth, scan your library, and automatically match against the Otix database.",
+  "author": "Diogo da Silva",
+  "repository": "https://github.com/dksilv4/otix-plugins",
+  "min_app_version": "0.3.0",
+  "permissions": [
+    "network:external",
+    "storage:local",
+    "events:subscribe",
+    "notifications",
+    "ui:settings",
+    "api:proxy"
+  ],
+  "config": {
+    "auto_sync": {
+      "type": "boolean",
+      "label": "Auto-sync on login",
+      "default": true
+    },
+    "refresh_token": {
+      "type": "secret",
+      "label": "Refresh Token (auto-managed)",
+      "advanced": true
+    },
+    "account_id": {
+      "type": "string",
+      "label": "Account ID (auto-managed)",
+      "advanced": true
+    },
+    "display_name": {
+      "type": "string",
+      "label": "Display Name (auto-managed)",
+      "advanced": true
+    },
+    "_scan_progress": {
+      "type": "string",
+      "label": "Scan Progress (auto-managed)",
+      "advanced": true
+    }
+  },
+  "slots": [
+    {
+      "location": "library:scan",
+      "label": "Epic Games"
+    },
+    {
+      "location": "matching:scan",
+      "label": "Epic Games"
+    }
+  ],
+  "entry": {
+    "main": "main.js"
+  }
+}
