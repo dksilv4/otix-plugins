@@ -91,4 +91,67 @@ module.exports = function(ctx) {
       return [];
     }
   });
+
+  // ── activity.poll — returns download queue as activity items ──
+  ctx.handle('activity.poll', async function() {
+    try {
+      var downloaders = await ctx.discover('downloader');
+      var queues = await Promise.all(downloaders.map(function(d) {
+        return ctx.call(d.pluginId, 'get-queue');
+      }));
+      var histories = await Promise.all(downloaders.map(function(d) {
+        return ctx.call(d.pluginId, 'get-history');
+      }));
+
+      var items = [];
+      var flatQueue = [];
+      for (var i = 0; i < queues.length; i++) {
+        if (queues[i] && Array.isArray(queues[i])) flatQueue = flatQueue.concat(queues[i]);
+      }
+      var flatHistory = [];
+      for (var j = 0; j < histories.length; j++) {
+        if (histories[j] && Array.isArray(histories[j])) flatHistory = flatHistory.concat(histories[j]);
+      }
+
+      // Active queue items
+      for (var k = 0; k < flatQueue.length; k++) {
+        var q = flatQueue[k];
+        var isActive = q.status === 'Downloading' || q.status === 'downloading';
+        items.push({
+          id: q.id,
+          type: 'download',
+          title: q.title || 'Downloading...',
+          subtitle: isActive ? (q.size ? formatSize(q.size) : '') : q.status,
+          progress: q.percentage || 0,
+          status: isActive ? 'active' : 'pending',
+          action: { label: 'Cancel', method: 'cancel-download' },
+        });
+      }
+
+      // Recent completed/failed from history
+      for (var l = 0; l < flatHistory.length; l++) {
+        var h = flatHistory[l];
+        if (h.status === 'Completed' || h.status === 'Failed') {
+          items.push({
+            id: h.id,
+            type: 'download',
+            title: h.title || 'Complete',
+            subtitle: h.status === 'Completed' ? 'Done' : 'Failed',
+            progress: h.status === 'Completed' ? 100 : 0,
+            status: h.status === 'Completed' ? 'completed' : 'error',
+          });
+        }
+      }
+
+      return { activities: items.slice(0, 20), label: 'Downloads' };
+    } catch(e) {
+      return { activities: [], label: 'Downloads' };
+    }
+  });
+
+  function formatSize(bytes) {
+    if (!bytes) return '';
+    var gb = bytes / 1073741824;
+    return gb.toFixed(1) + ' GB';
+  }
 };

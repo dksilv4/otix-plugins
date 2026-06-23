@@ -16,5 +16,9 @@
     "namingTemplate": { "type": "string", "label": "Naming template", "default": "{Title} ({Year}) [{Platform}]/{OriginalName}.{ext}" },
     "savePath": { "type": "string", "label": "Library save path" }
   },
+  "slots": [
+    { "location": "activity:panel", "label": "Downloads" },
+    { "location": "library:downloads", "label": "Downloads" }
+  ],
   "entry": { "main": "main.js" }
 }
