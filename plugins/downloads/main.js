@@ -82,4 +82,13 @@ module.exports = function(ctx) {
     var downloaders = await ctx.discover('downloader');
     return { providers: providers, downloaders: downloaders };
   });
+
+  // ── get-downloads — reads from shared downloads DB ──
+  ctx.handle('get-downloads', async function() {
+    try {
+      return await ctx.downloadsDb.all('SELECT * FROM downloads ORDER BY created_at DESC');
+    } catch(e) {
+      return [];
+    }
+  });
 };
