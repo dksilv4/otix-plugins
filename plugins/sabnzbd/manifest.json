@@ -1,0 +1,20 @@
+{
+  "name": "sabnzbd",
+  "version": "1.0.0",
+  "description": "SABnzbd usenet download client",
+  "author": "Otix",
+  "repository": "",
+  "min_app_version": "0.1.0",
+  "permissions": ["network:external", "ui:settings"],
+  "services": [
+    { "type": "downloader", "protocol": "usenet" }
+  ],
+  "config": {
+    "host": { "type": "string", "label": "Host", "default": "localhost" },
+    "port": { "type": "number", "label": "Port", "default": 8080 },
+    "apiKey": { "type": "secret", "label": "API Key" },
+    "useSsl": { "type": "boolean", "label": "Use SSL", "default": false },
+    "category": { "type": "string", "label": "Default Category", "default": "games" }
+  },
+  "entry": { "main": "main.js" }
+}
