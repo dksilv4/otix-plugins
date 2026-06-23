@@ -1,0 +1,14 @@
+{
+  "name": "EA App Provider",
+  "version": "0.1.0",
+  "description": "Scan your EA App game library and match with Otix",
+  "author": "Otix",
+  "repository": "builtin",
+  "min_app_version": "0.3.0",
+  "permissions": ["worker:filesystem", "storage:local"],
+  "slots": [
+    { "location": "library:scan", "label": "EA App" },
+    { "location": "matching:scan", "label": "EA App" }
+  ],
+  "entry": { "main": "main.js" }
+}

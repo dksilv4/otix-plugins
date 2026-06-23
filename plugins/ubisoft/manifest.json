@@ -1,0 +1,14 @@
+{
+  "name": "Ubisoft Connect Provider",
+  "version": "0.1.0",
+  "description": "Scan your Ubisoft Connect game library and match with Otix",
+  "author": "Otix",
+  "repository": "builtin",
+  "min_app_version": "0.3.0",
+  "permissions": ["worker:filesystem", "storage:local"],
+  "slots": [
+    { "location": "library:scan", "label": "Ubisoft Connect" },
+    { "location": "matching:scan", "label": "Ubisoft Connect" }
+  ],
+  "entry": { "main": "main.js" }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "Xbox / Microsoft Store Provider",
+  "version": "0.1.0",
+  "description": "Scan your Xbox / Microsoft Store games and match with Otix",
+  "author": "Otix",
+  "repository": "builtin",
+  "min_app_version": "0.3.0",
+  "permissions": ["worker:filesystem", "storage:local"],
+  "slots": [
+    { "location": "library:scan", "label": "Xbox / MS Store" },
+    { "location": "matching:scan", "label": "Xbox / MS Store" }
+  ],
+  "entry": { "main": "main.js" }
+}

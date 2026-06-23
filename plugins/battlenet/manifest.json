@@ -1,0 +1,18 @@
+{
+  "name": "Battle.net Provider",
+  "version": "0.1.0",
+  "description": "Scan your Battle.net game library and match with Otix",
+  "author": "Otix",
+  "repository": "builtin",
+  "min_app_version": "0.3.0",
+  "permissions": ["worker:filesystem", "storage:local"],
+  "config": {
+    "auto_sync": { "type": "boolean", "label": "Auto-scan on startup", "default": true },
+    "mark_as_owned": { "type": "boolean", "label": "Mark matched games as owned", "default": true }
+  },
+  "slots": [
+    { "location": "library:scan", "label": "Battle.net" },
+    { "location": "matching:scan", "label": "Battle.net" }
+  ],
+  "entry": { "main": "main.js" }
+}

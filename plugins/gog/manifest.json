@@ -1,9 +1,9 @@
 {
-  "name": "Epic Games Provider",
+  "name": "GOG Galaxy Provider",
   "version": "0.1.0",
-  "description": "Scan and match your Epic Games library with Otix media items. Login via OAuth, scan your library, and automatically match against the Otix database.",
-  "author": "Diogo da Silva",
-  "repository": "https://github.com/dksilv4/otix-plugins",
+  "description": "Scan and match your GOG Galaxy library with Otix media items. Login via OAuth, scan your library, and automatically match against the Otix database.",
+  "author": "Otix",
+  "repository": "builtin",
   "min_app_version": "0.3.0",
   "permissions": [
     "network:external",
@@ -11,18 +11,19 @@
     "events:subscribe",
     "notifications",
     "ui:settings",
-    "api:proxy"
+    "api:proxy",
+    "worker:filesystem"
   ],
   "config": {
     "auto_sync": {
       "type": "boolean",
-      "label": "Auto-sync on login",
+      "label": "Auto-scan on startup",
       "default": true
     },
     "mark_as_owned": {
       "type": "boolean",
       "label": "Mark matched games as owned",
-      "description": "Automatically add matched Epic games to your owned library",
+      "description": "Automatically add matched GOG games to your owned library",
       "default": true
     },
     "refresh_token": {
@@ -30,34 +31,35 @@
       "label": "Refresh Token (auto-managed)",
       "advanced": true
     },
-    "account_id": {
+    "access_token": {
+      "type": "secret",
+      "label": "Access Token (auto-managed)",
+      "advanced": true
+    },
+    "token_expires_at": {
+      "type": "number",
+      "label": "Token Expiry (auto-managed)",
+      "advanced": true
+    },
+    "user_id": {
       "type": "string",
-      "label": "Account ID (auto-managed)",
+      "label": "User ID (auto-managed)",
       "advanced": true
     },
     "display_name": {
       "type": "string",
       "label": "Display Name (auto-managed)",
       "advanced": true
-    },
-    "_scan_progress": {
-      "type": "string",
-      "label": "Scan Progress (auto-managed)",
-      "advanced": true
     }
   },
   "slots": [
     {
       "location": "library:scan",
-      "label": "Epic Games"
+      "label": "GOG Galaxy"
     },
     {
       "location": "matching:scan",
-      "label": "Epic Games"
-    },
-    {
-      "location": "activity:panel",
-      "label": "Epic Games"
+      "label": "GOG Galaxy"
     }
   ],
   "entry": {

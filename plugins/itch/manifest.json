@@ -1,0 +1,14 @@
+{
+  "name": "Itch.io Provider",
+  "version": "0.1.0",
+  "description": "Scan your Itch.io game library and match with Otix",
+  "author": "Otix",
+  "repository": "builtin",
+  "min_app_version": "0.3.0",
+  "permissions": ["worker:filesystem", "storage:local"],
+  "slots": [
+    { "location": "library:scan", "label": "Itch.io" },
+    { "location": "matching:scan", "label": "Itch.io" }
+  ],
+  "entry": { "main": "main.js" }
+}

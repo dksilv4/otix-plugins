@@ -1,6 +1,6 @@
 // Epic Games Scanner plugin for Otix
 // Uses Epic's internal launcher API (launcherAppClient2) for OAuth + library scan.
-// No backend Epic endpoints. Matching via /media/match/batch.
+// No backend Epic endpoints. Matching handled by host GameScanOrchestrator via /media/match/stream.
 
 const https = require('https');
 const http = require('http');
@@ -393,6 +393,7 @@ async function performScan(ctx) {
       appName,
       namespace: item.namespace || null,
       catalogItemId: item.catalogItemId || null,
+      offerId: item.offerId || null,
       title,
       developer: item.developer || null,
       developerId: null,  // populated by catalog enrichment
@@ -423,11 +424,18 @@ async function performScan(ctx) {
     _setProgress(ctx, { phase: 'enriching', current: enrichedCount, total: games.length });
     ctx.logger.info('Catalog enriched: ' + enrichedCount + ' items');
 
+    // Debug enrichment stats
+    const debugStats = { total: games.length, withCatId: 0, withOfferId: 0, enriched: 0, withPoster: 0, enrichedHasImages: 0 };
+    for (const g of games) { if (g.catalogItemId) debugStats.withCatId++; if (g.offerId) debugStats.withOfferId++; }
+
     // Merge enrichment into games
     for (const g of games) {
       const catId = g.catalogItemId;
-      if (catId && enriched[catId]) {
-        const e = enriched[catId];
+      const offerId = g.offerId;
+      const e = enriched[catId] || (offerId && enriched[offerId]) || null;
+      if (e) {
+        debugStats.enriched++;
+        if (e.keyImages?.length) debugStats.enrichedHasImages++;
         if (e.title) g.title = e.title;
         if (e.developer) g.developer = e.developer;
         if (e.publisher) g.publisher = e.publisher;
@@ -435,18 +443,45 @@ async function performScan(ctx) {
         if (e.sellerName) g.sellerName = e.sellerName;
         if (e.external_ids?.length) g.developerExternalIds = e.external_ids;
         const posterUrl = e.keyImages?.find((img) =>
-          img.type === 'DieselStoreFrontWide' || img.type === 'Thumbnail'
+          img.type === 'DieselGameBoxTall'
         )?.url;
-        if (posterUrl) g.posterUrl = posterUrl;
+        if (posterUrl) { g.posterUrl = posterUrl; debugStats.withPoster++; }
         const logoUrl = e.keyImages?.find((img) =>
           img.type === 'DieselGameBoxLogo'
         )?.url;
         if (logoUrl) g.logoUrl = logoUrl;
       }
     }
+    ctx.logger.info('Enrich debug: ' + JSON.stringify(debugStats));
+    // Sample: show keyImage types from first 3 enriched items for debugging
+    const sampleTypes = new Set();
+    for (const g of games) {
+      const e = enriched[g.catalogItemId] || enriched[g.offerId];
+      if (e?.keyImages) for (const img of e.keyImages) {
+        if (sampleTypes.size < 8) sampleTypes.add(img.type || 'unknown');
+      }
+    }
+    ctx.logger.info('Enrich keyImage types: ' + JSON.stringify([...sampleTypes]));
   } catch (err) {
     ctx.logger.warn('Enrichment failed: ' + err.message);
   }
+
+  // Phase 5: Detect DLCs — items sharing namespace with a different-appName "main" game
+  // Build namespace → primary appName map (first game per namespace = main game)
+  const nsPrimary = {};
+  for (const g of games) {
+    if (g.namespace && !nsPrimary[g.namespace]) {
+      nsPrimary[g.namespace] = g.appName;
+    }
+  }
+  let dlcCount = 0;
+  for (const g of games) {
+    if (g.namespace && nsPrimary[g.namespace] && g.appName !== nsPrimary[g.namespace]) {
+      g.dlcOf = nsPrimary[g.namespace];
+      dlcCount++;
+    }
+  }
+  if (dlcCount > 0) ctx.logger.info('DLCs detected: ' + dlcCount);
 
   _setProgress(ctx, { phase: 'done', current: games.length, total: games.length });
   ctx.logger.info('Scan complete: ' + games.length + ' games, ' + games.filter((g) => g.isInstalled).length + ' installed' + (skipped > 0 ? ', ' + skipped + ' skipped (UE/Quixel/MetaHuman)' : ''));
@@ -543,89 +578,119 @@ const dataMethods = {
   },
 
   'scan': async (ctx) => {
-    return performScan(ctx);
+    const result = await performScan(ctx);
+    if (!result.success) {
+      return { success: false, error: result.error, games: [] };
+    }
+
+    // Map to standardized ScannedGame[]
+    const games = result.games.map((g) => ({
+      id: g.appName,
+      title: g.title,
+      platform: 'epic',
+      externalIds: [
+        { source: 'epic', id: g.appName },
+        ...(g.namespace ? [{ source: 'epic_namespace', id: g.namespace }] : []),
+      ],
+      developer: g.developer || g.publisher || null,
+      publisher: g.publisher || g.developer || null,
+      installPath: g.installPath || null,
+      exePath: g.launchExe || null,
+      posterUrl: g.posterUrl || null,
+      logoUrl: g.logoUrl || null,
+      dlcOf: g.dlcOf || null,
+      rawMetadata: {
+        namespace: g.namespace,
+        catalogItemId: g.catalogItemId,
+        installSize: g.installSize,
+        version: g.version,
+        isInstalled: g.isInstalled,
+        savePaths: g.savePaths,
+        dlcOf: g.dlcOf || null,
+      },
+    }));
+
+    return { success: true, total: result.total, games };
   },
 
   'scan.status': async () => {
     return { ..._scanProgress };
   },
 
-  'match.batch': async (ctx, games) => {
-    if (!games || !games.length) return { success: false, error: 'No games provided', matches: [] };
+  'activity.poll': async (ctx) => {
+    const activities = [];
+    const now = Date.now();
 
-    // Build a lookup map of appName → scan game for poster fallback
-    const scanGameByAppName = {};
-    for (const g of games) {
-      const key = g.appName || g.catalogItemId || '';
-      if (key) scanGameByAppName[key] = g;
-    }
-
-    const batchGames = games.map((g) => ({
-      query_id: 'epic:' + (g.appName || g.catalogItemId || ''),
-      title: g.title || g.appName || '',
-      developer: g.developer || g.publisher || null,
-      publisher: g.publisher || g.developer || null,
-      external_ids: [{ source: 'epic', id: g.appName || g.catalogItemId || '' }],
-      media_type: 'game',
-    }));
-
-    try {
-      const result = await ctx.api.post('/media/match/batch', { games: batchGames });
-      const matches = (result.matches || result || []).map((m, i) => {
-        const scanGame = games[i] || {};
-        // Inject Epic poster as fallback so UI shows image even for
-        // needs_import candidates where IGDB cover might be missing
-        if (m.candidates) {
-          for (const c of m.candidates) {
-            if (!c.poster_url && scanGame.posterUrl) {
-              c.poster_url = scanGame.posterUrl;
-            }
-          }
-        }
-        if (m.auto_match && !m.auto_match.poster_url && scanGame.posterUrl) {
-          m.auto_match.poster_url = scanGame.posterUrl;
-        }
-        return {
-          ...m,
-          _epic_poster_url: scanGame.posterUrl || null,
-          _epic_logo_url: scanGame.logoUrl || null,
-        };
+    // Report active scan progress if running
+    if (_scanProgress.phase !== 'idle' && _scanProgress.phase !== 'done' && _scanProgress.phase !== 'error') {
+      activities.push({
+        id: 'epic-scan-active',
+        type: 'scan',
+        title: 'Scanning Epic Games library',
+        subtitle: `${_scanProgress.current || 0}/${_scanProgress.total || 0} games · ${_scanProgress.phase}`,
+        progress: _scanProgress.total ? Math.round((_scanProgress.current || 0) / _scanProgress.total * 100) : undefined,
+        status: 'active',
+        timestamp: _scanProgress.startedAt || now,
       });
-      return { success: true, matches };
-    } catch (err) {
-      ctx.logger.error('match.batch failed: ' + err.message);
-      return { success: false, error: err.message, matches: [] };
+      return { activities, label: 'Epic Games' };
     }
+
+    // Report last scan result if within 5 minutes
+    let lastScan = null;
+    try {
+      const raw = await ctx.config.get('_last_scan');
+      if (raw) lastScan = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch { /* ignore */ }
+
+    if (lastScan && lastScan.last_scan_at && (now - lastScan.last_scan_at) < 300_000) {
+      activities.push({
+        id: 'epic-scan-complete',
+        type: 'scan',
+        title: 'Epic Games scan complete',
+        subtitle: `${lastScan.last_scan_total || 0} games · ${lastScan.last_scan_installed || 0} installed`,
+        status: 'completed',
+        timestamp: lastScan.last_scan_at,
+        action: {
+          label: 'View',
+          method: 'activity.viewResults',
+        },
+      });
+    }
+
+    // Report auth status
+    const rt = await _getRt(ctx);
+    if (!rt) {
+      activities.push({
+        id: 'epic-auth-needed',
+        type: 'warning',
+        title: 'Epic Games not connected',
+        subtitle: 'Sign in to scan your library',
+        status: 'pending',
+        timestamp: now,
+        action: {
+          label: 'Connect',
+          method: 'activity.connect',
+        },
+      });
+    }
+
+    return { activities: activities.length > 0 ? activities : [], label: 'Epic Games' };
   },
 
-  'match.confirm': async (ctx, params) => {
-    if (!params || !params.query_id) return { success: false, error: 'query_id required' };
-
-    try {
-      const result = await ctx.api.post('/media/match/confirm', {
-        query_id: params.query_id,
-        media_item_id: params.media_item_id || null,
-        igdb_id: params.igdb_id || null,
-        rejected: params.rejected || false,
-        rejected_permanently: params.rejected_permanently || false,
-      });
-      return { success: result.success, media_item_id: result.media_item_id, error: result.error };
-    } catch (err) {
-      ctx.logger.error('match.confirm failed: ' + err.message);
-      return { success: false, error: err.message };
+  'activity.connect': async (ctx) => {
+    const url = getAuthUrl();
+    // Open auth URL in default browser
+    const { shell } = require('electron');
+    if (shell?.openExternal) {
+      await shell.openExternal(url);
     }
+    return { success: true };
   },
 
-  'match.unlink': async (ctx, queryId) => {
-    if (!queryId) return { success: false, error: 'query_id required' };
-
-    try {
-      const result = await ctx.api.get('/media/match/unlink?query_id=' + encodeURIComponent(queryId));
-      return { success: result.success, error: result.error };
-    } catch (err) {
-      ctx.logger.error('match.unlink failed: ' + err.message);
-      return { success: false, error: err.message };
-    }
+  'activity.viewResults': async (ctx) => {
+    // Trigger navigation to matching page — emit event for frontend
+    ctx.notifications.send({ title: 'Epic Games', body: 'Scan complete. Review your matches.' });
+    return { success: true };
   },
 };
 
@@ -689,40 +754,13 @@ module.exports = {
   'auth.logout': dataMethods['auth.logout'],
   'scan': dataMethods['scan'],
   'scan.status': dataMethods['scan.status'],
-  'match.batch': dataMethods['match.batch'],
-  'match.confirm': dataMethods['match.confirm'],
-  'match.unlink': dataMethods['match.unlink'],
-
-  slotRender: async (ctx, slotName) => {
-    if (slotName === 'matching:scan') {
-      return {
-        type: 'scan',
-        platform: 'epic',
-        label: 'Epic Games',
-        description: 'Scan and match your Epic Games library',
-        actions: {
-          status: 'status',
-          scan: 'scan',
-          match: 'match.batch',
-          confirm: 'match.confirm',
-        },
-      };
-    }
-    // library:scan
-    return {
-      type: 'scan',
-      platform: 'epic',
-      label: 'Epic Games',
-      description: 'Scan your Epic Games library and match against Otix media',
-      actions: {
-        status: 'status',
-        login: 'auth.getLoginUrl',
-        handleCallback: 'auth.handleCallback',
-        logout: 'auth.logout',
-        scan: 'scan',
-        match: 'match.batch',
-        confirm: 'match.confirm',
-      },
-    };
-  },
+  'activity.poll': dataMethods['activity.poll'],
+  'activity.connect': dataMethods['activity.connect'],
+  'activity.viewResults': dataMethods['activity.viewResults'],
+  slotRender: async (ctx, location) => ({
+    type: 'scan',
+    platform: 'epic',
+    label: 'Epic Games',
+    description: 'Scan and match your Epic Games library',
+  }),
 };
