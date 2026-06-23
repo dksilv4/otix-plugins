@@ -1,0 +1,17 @@
+{
+  "name": "nzbplanet",
+  "version": "1.0.0",
+  "description": "NZBPlanet usenet search provider",
+  "author": "Otix",
+  "repository": "",
+  "min_app_version": "0.1.0",
+  "permissions": ["network:external", "ui:settings"],
+  "services": [
+    { "type": "search-provider", "protocol": "usenet" }
+  ],
+  "config": {
+    "apiKey": { "type": "secret", "label": "API Key" },
+    "categoryIds": { "type": "string", "label": "Category IDs", "default": "1000,2000" }
+  },
+  "entry": { "main": "main.js" }
+}
