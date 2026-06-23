@@ -1,0 +1,20 @@
+{
+  "name": "downloads",
+  "version": "1.0.0",
+  "description": "Download orchestrator — discovers providers, coordinates search/download, post-processes and organizes media",
+  "author": "Otix",
+  "repository": "",
+  "min_app_version": "0.1.0",
+  "permissions": ["network:external", "events:subscribe", "storage:local", "ui:settings", "notifications", "worker:filesystem"],
+  "services": [
+    { "type": "downloads-orchestrator" }
+  ],
+  "config": {
+    "preferredRepackers": { "type": "string", "label": "Preferred repackers (comma-separated)" },
+    "allowHypervisor": { "type": "boolean", "label": "Allow hypervisor VMs", "default": false },
+    "autoOrganizeEnabled": { "type": "boolean", "label": "Auto-organize completed downloads", "default": false },
+    "namingTemplate": { "type": "string", "label": "Naming template", "default": "{Title} ({Year}) [{Platform}]/{OriginalName}.{ext}" },
+    "savePath": { "type": "string", "label": "Library save path" }
+  },
+  "entry": { "main": "main.js" }
+}
