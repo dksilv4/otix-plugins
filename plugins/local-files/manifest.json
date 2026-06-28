@@ -1,8 +1,8 @@
 {
-  "name": "Local Files Provider",
-  "version": "1.0.0",
+  "name": "Local Files",
+  "version": "0.1.0",
   "description": "Scan local directories for Steam, PC, and ISO games",
-  "author": "Otix",
+  "author": "Diogo da Silva",
   "repository": "builtin",
   "min_app_version": "0.3.0",
   "permissions": ["worker:filesystem", "storage:local"],

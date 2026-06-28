@@ -60,9 +60,9 @@ module.exports = {
     return { connected: exists };
   },
   test: async (ctx) => {
-    if (!ITCH_DIR) return { success: false, message: 'APPDATA not set' };
-    if (await ctx.filesystem.access(ITCH_DIR)) return { success: true, message: 'Itch.io directory found' };
-    return { success: true, message: 'No Itch.io installation detected' };
+    if (!ITCH_DIR) return { passed: false, failures: ['APPDATA not set'] };
+    if (await ctx.filesystem.access(ITCH_DIR)) return { passed: true };
+    return { passed: true };
   },
-  slotRender: async (ctx, location) => ({ type: 'scan', platform: 'itch', label: 'Itch.io', description: 'Scan local Itch.io game installations' }),
+  slotRender: async (ctx, location) => ({ type: 'scan', platform: 'itch', label: 'Itch.io', description: 'Scan local Itch.io game installations', mediaTypes: ['games'] }),
 };

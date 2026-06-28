@@ -2,7 +2,7 @@
   "plugins": [
     {
       "id": "otix-epic",
-      "name": "Epic Games Store",
+      "name": "Epic Games",
       "version": "0.1.0",
       "description": "Sync your Epic Games Store library to Otix. Auto-import owned games, track playtime, and get notified about free weekly games.",
       "author": "Diogo da Silva",
@@ -15,8 +15,8 @@
     },
     {
       "id": "otix-radarr",
-      "name": "Radarr Sync",
-      "version": "0.3.0.2",
+      "name": "Radarr",
+      "version": "0.1.0",
       "description": "Sync an Otix list with multiple Radarr instances. Add movies to your watchlist and they auto-download with full quality profile and root folder configuration.",
       "author": "Diogo da Silva",
       "repository": "https://github.com/dksilv4/otix-plugins",
@@ -27,9 +27,35 @@
       "permissions": ["api:proxy", "network:external", "events:subscribe", "storage:local", "notifications", "ui:settings"]
     },
     {
+      "id": "otix-sonarr",
+      "name": "Sonarr",
+      "version": "0.1.0",
+      "description": "Sync an Otix list with multiple Sonarr instances. Add TV shows to your watchlist and they auto-download with full quality profile and root folder configuration.",
+      "author": "Diogo da Silva",
+      "repository": "https://github.com/dksilv4/otix-plugins",
+      "path": "plugins/otix-sonarr",
+      "icon": "tv",
+      "category": "media",
+      "tags": ["sonarr", "tv", "shows", "automation", "download"],
+      "permissions": ["api:proxy", "network:external", "events:subscribe", "storage:local", "notifications", "ui:settings"]
+    },
+    {
+      "id": "otix-lidarr",
+      "name": "Lidarr",
+      "version": "0.1.0",
+      "description": "Sync your Otix music library with Lidarr. Add music to your collection and Lidarr will automatically search and download it.",
+      "author": "Diogo da Silva",
+      "repository": "https://github.com/dksilv4/otix-plugins",
+      "path": "plugins/otix-lidarr",
+      "icon": "music",
+      "category": "media",
+      "tags": ["lidarr", "music", "audio", "automation", "download"],
+      "permissions": ["api:proxy", "network:external", "events:subscribe", "storage:local", "notifications", "ui:settings"]
+    },
+    {
       "id": "otix-hello",
       "name": "Hello World",
-      "version": "0.3.0.1",
+      "version": "0.1.0",
       "description": "A test plugin that validates the Otix plugin system by demonstrating event subscriptions, local database, API calls, notifications, and logging.",
       "author": "Diogo da Silva",
       "repository": "https://github.com/dksilv4/otix-plugins",

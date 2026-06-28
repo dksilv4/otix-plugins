@@ -1,5 +1,5 @@
 {
-  "name": "Epic Games Provider",
+  "name": "Epic Games",
   "version": "0.1.0",
   "description": "Scan and match your Epic Games library with Otix media items. Login via OAuth, scan your library, and automatically match against the Otix database.",
   "author": "Diogo da Silva",
@@ -16,13 +16,29 @@
   "config": {
     "auto_sync": {
       "type": "boolean",
-      "label": "Auto-sync on login",
+      "label": "Auto-scan on login",
       "default": true
     },
     "mark_as_owned": {
       "type": "boolean",
       "label": "Mark matched games as owned",
       "description": "Automatically add matched Epic games to your owned library",
+      "default": true
+    },
+    "free_games_country": {
+      "type": "string",
+      "label": "Country code for free games",
+      "description": "Override country (e.g. PT, GB, DE). Empty = auto-detect from system.",
+      "default": ""
+    },
+    "free_games_auto_check": {
+      "type": "boolean",
+      "label": "Auto-check free games on startup",
+      "default": true
+    },
+    "free_games_notify": {
+      "type": "boolean",
+      "label": "Notify when new free games detected",
       "default": true
     },
     "refresh_token": {
@@ -44,6 +60,16 @@
       "type": "string",
       "label": "Scan Progress (auto-managed)",
       "advanced": true
+    },
+    "_last_free_games": {
+      "type": "string",
+      "label": "Free games cache (auto-managed)",
+      "advanced": true
+    },
+    "_last_free_games_check": {
+      "type": "number",
+      "label": "Free games last check (auto-managed)",
+      "advanced": true
     }
   },
   "slots": [
@@ -60,6 +86,7 @@
       "label": "Epic Games"
     }
   ],
+  "services": ["free-games-provider"],
   "entry": {
     "main": "main.js"
   }

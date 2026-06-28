@@ -1,8 +1,8 @@
 {
-  "name": "Xbox / Microsoft Store Provider",
+  "name": "Xbox / Microsoft Store",
   "version": "0.1.0",
   "description": "Scan your Xbox / Microsoft Store games and match with Otix",
-  "author": "Otix",
+  "author": "Diogo da Silva",
   "repository": "builtin",
   "min_app_version": "0.3.0",
   "permissions": ["worker:filesystem", "storage:local"],

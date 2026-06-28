@@ -48,20 +48,75 @@ See [Radarr Sync](plugins/otix-radarr/) for a complete example.
 ### main.js
 
 ```javascript
-module.exports = function(ctx) {
+// Plugins MUST export a default function (the entry point) AND a
+// "test" function. Without a passing test, the plugin cannot be enabled.
+
+const entry = function(ctx) {
   // Plugin context: ctx.config, ctx.events, ctx.db, ctx.api, ctx.fetch,
-  //                 ctx.notifications, ctx.logger, ctx.onDestroy
-  
+  //                 ctx.notifications, ctx.logger, ctx.handle, ctx.call,
+  //                 ctx.host.emit, ctx.onDestroy
+
   ctx.logger.info('Plugin started');
-  
+
   ctx.onDestroy(() => {
     ctx.logger.info('Plugin stopped');
   });
 };
 
-// Optional: connection test
-module.exports.test = async function(ctx, config) {
-  return { success: true, message: 'All good!' };
+// ── Mandatory test export ─────────────────────────────────────────
+// ALL plugins must export a "test" function. It runs before the plugin
+// is enabled. Return { passed: boolean, failures?: string[] }.
+//
+// If passed is false, the plugin stays disabled and the failure reasons
+// are shown to the user. If the test export is missing entirely, the
+// plugin is rejected with a descriptive error.
+entry.test = async function(ctx) {
+  const failures = [];
+
+  // Test core logic (pure functions, config validation, etc.)
+  if (1 + 1 !== 2) failures.push('Math is broken');
+
+  // Test external connectivity if needed (with timeout)
+  // try { await ctx.fetch('https://example.com'); } catch { failures.push('Network unreachable'); }
+
+  return { passed: failures.length === 0, failures };
+};
+
+module.exports = entry;
+```
+
+#### Test Requirements
+
+Every plugin **must** export a `test` function. This is enforced at enable time:
+
+| Rule | |
+|---|---|
+| **Signature** | `test(ctx) => Promise<{ passed: boolean, failures?: string[] }>` |
+| **Runs** | Every time the plugin is enabled (startup + manual enable) |
+| **Passing** | Return `{ passed: true }` (failures array empty or omitted) |
+| **Failing** | Return `{ passed: false, failures: ['reason 1', 'reason 2'] }` |
+| **Missing** | Plugin is rejected — "must export a test function" |
+| **Timeout** | 60s (same as any RPC call). Keep tests fast. |
+
+Good tests check: config schema assumptions, pure function correctness, required binaries exist (don't crash), edge cases (empty input, null values). Avoid: long network calls, spawning real processes that may hang.
+
+#### Optional: config connection test
+
+For plugins that want a user-initiated connection test (e.g., "Test Connection" button in settings), the same `test` function can handle it — the settings UI calls it with a config draft:
+
+```javascript
+entry.test = async function(ctx, configDraft) {
+  // If called with a config draft, test connectivity
+  if (configDraft) {
+    try {
+      await ctx.fetch(configDraft.url + '/api/status');
+      return { passed: true };
+    } catch (e) {
+      return { passed: false, failures: [e.message] };
+    }
+  }
+  // Called without args — run core validation tests
+  return { passed: true };
 };
 ```
 

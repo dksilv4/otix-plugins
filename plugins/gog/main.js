@@ -260,21 +260,51 @@ module.exports = {
 
   test: async (ctx, configDraft) => {
     const token = configDraft?.access_token || ctx.config.get('access_token');
-    if (!token) return { success: false, message: 'Not authenticated — log in with GOG first' };
+    if (!token) return { passed: false, failures: ['Not authenticated — log in with GOG first'] };
     const res = await apiGet(API_HOST, '/userData.json', token);
-    if (res.status === 200) return { success: true, message: `Connected as ${res.data?.username || 'unknown'}` };
-    return { success: false, message: `API returned ${res.status}` };
+    if (res.status === 200) return { passed: true };
+    return { passed: false, failures: [`API returned ${res.status}`] };
   },
 
   slotRender: async (ctx, location) => ({
     type: 'scan', platform: 'gog', label: 'GOG Galaxy',
     description: 'Scan your GOG Galaxy library',
+    mediaTypes: ['games'],
   }),
+};
 
-  // Re-export at top level for worker RPC dispatch
-  'auth.getLoginUrl': dataMethods['auth.getLoginUrl'],
-  'auth.handleCallback': dataMethods['auth.handleCallback'],
-  'auth.logout': dataMethods['auth.logout'],
+// ── Plugin exports ────────────────────────────────────────────────────
+
+module.exports = {
+  plugin: (ctx) => {
+    ctx.logger.info('GOG Galaxy Scanner loaded');
+  },
+
+  data: dataMethods,
+
+  status: async (ctx) => {
+    const connected = !!ctx.config.get('refresh_token');
+    return {
+      connected,
+      display_name: ctx.config.get('display_name') || null,
+      last_scan_total: ctx.config.get('_last_scan_total') || null,
+      last_scan_at: ctx.config.get('_last_scan_at') || null,
+    };
+  },
+
+  test: async (ctx, configDraft) => {
+    const token = configDraft?.access_token || ctx.config.get('access_token');
+    if (!token) return { passed: false, failures: ['Not authenticated — log in with GOG first'] };
+    const res = await apiGet(API_HOST, '/userData.json', token);
+    if (res.status === 200) return { passed: true };
+    return { passed: false, failures: [`API returned ${res.status}`] };
+  },
+
+  slotRender: async (ctx, location) => ({
+    type: 'scan', platform: 'gog', label: 'GOG Galaxy',
+    description: 'Scan your GOG Galaxy library',
+    mediaTypes: ['games'],
+  }),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────

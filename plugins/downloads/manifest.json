@@ -1,6 +1,6 @@
 {
   "name": "Download Pipeline",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Download orchestrator — discovers providers, coordinates search/download, post-processes and organizes media",
   "author": "Otix",
   "repository": "",
@@ -18,7 +18,8 @@
   },
   "slots": [
     { "location": "activity:panel", "label": "Downloads" },
-    { "location": "library:downloads", "label": "Downloads" }
+    { "location": "library:downloads", "label": "Downloads" },
+    { "location": "settings/downloads/main", "label": "Downloads Settings" }
   ],
   "entry": { "main": "main.js" }
 }

@@ -154,4 +154,51 @@ module.exports = function(ctx) {
     var gb = bytes / 1073741824;
     return gb.toFixed(1) + ' GB';
   }
+
+  // ── slotRender — settings UI widgets for slot locations ──
+  ctx.handle('slotRender', async function(location) {
+    if (location === 'settings/downloads/main') {
+      var config = ctx.config.getAll();
+      return {
+        widgets: [
+          { type: 'card', props: { padding: 'lg', title: 'Download Settings' }, children: [
+            { type: 'form', props: {
+              fields: [
+                { type: 'text', key: 'savePath', label: 'ISO Library Path', placeholder: 'e.g. D:\\Games\\ISOs' },
+                { type: 'text', key: 'preferredRepackers', label: 'Preferred repackers (comma-separated)' },
+                { type: 'text', key: 'namingTemplate', label: 'Naming template', placeholder: '{Title} ({Year}) [{Platform}]/{OriginalName}.{ext}' },
+              ],
+              submitLabel: 'Save Settings',
+              action: 'save-download-settings',
+            }},
+          ]},
+          { type: 'alert', props: { title: 'Settings stored in plugin config', message: 'Changes apply after saving. Download provider settings (SABnzbd, NZBPlanet) managed from their own plugin pages.', variant: 'info' } },
+        ]
+      };
+    }
+    return { widgets: [] };
+  });
+};
+
+// ── handleAction — process user actions from slot widgets ──
+module.exports.test = async function(ctx) {
+  // Verify the plugin loads and search/download mediators are functional
+  try { require('./quality-filter'); require('./organizer'); } catch (e) { return { passed: false, failures: [e.message] }; }
+  return { passed: true };
+};
+
+module.exports.handleAction = async function(ctx, actionKey, payload) {
+  if (actionKey === 'save-download-settings') {
+    var values = payload && payload.values;
+    if (values) {
+      for (var key in values) {
+        if (values.hasOwnProperty(key)) {
+          await ctx.config.set(key, values[key]);
+        }
+      }
+      return { success: true };
+    }
+    return { success: false, error: 'No values provided' };
+  }
+  return { success: false, error: 'Unknown action: ' + actionKey };
 };

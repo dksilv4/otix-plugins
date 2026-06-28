@@ -1,0 +1,45 @@
+{
+  "name": "Deals",
+  "version": "0.1.0",
+  "description": "Catch-all free game deal detector. Queries CheapShark API for 100%-off deals across 35 stores (GOG, Humble, Fanatical, etc.) and shows them in the discover feed.",
+  "author": "Diogo da Silva",
+  "repository": "https://github.com/dksilv4/otix-plugins",
+  "min_app_version": "0.3.0",
+  "permissions": [
+    "network:external",
+    "storage:local",
+    "notifications"
+  ],
+  "config": {
+    "auto_check": {
+      "type": "boolean",
+      "label": "Auto-check free deals on startup",
+      "default": true
+    },
+    "notify": {
+      "type": "boolean",
+      "label": "Notify when new free deals detected",
+      "default": true
+    },
+    "_last_free_deals": {
+      "type": "string",
+      "label": "Free deals cache (auto-managed)",
+      "advanced": true
+    },
+    "_last_free_deals_check": {
+      "type": "number",
+      "label": "Free deals last check (auto-managed)",
+      "advanced": true
+    }
+  },
+  "slots": [
+    {
+      "location": "activity:panel",
+      "label": "Deals"
+    }
+  ],
+  "services": ["free-games-provider"],
+  "entry": {
+    "main": "main.js"
+  }
+}

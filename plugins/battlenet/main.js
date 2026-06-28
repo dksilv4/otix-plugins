@@ -95,13 +95,14 @@ module.exports = {
 
   test: async (ctx) => {
     for (const p of BATTLENET_PATHS) {
-      if (await ctx.filesystem.access(p)) return { success: true, message: 'Battle.net directory found' };
+      if (await ctx.filesystem.access(p)) return { passed: true };
     }
-    return { success: true, message: 'No Battle.net installation detected (scan will return empty)' };
+    return { passed: true };
   },
 
   slotRender: async (ctx, location) => ({
     type: 'scan', platform: 'battlenet', label: 'Battle.net',
     description: 'Scan local Battle.net game installations',
+    mediaTypes: ['games'],
   }),
 };

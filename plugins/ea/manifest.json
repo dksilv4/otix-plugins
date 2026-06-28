@@ -1,8 +1,8 @@
 {
-  "name": "EA App Provider",
+  "name": "EA App",
   "version": "0.1.0",
   "description": "Scan your EA App game library and match with Otix",
-  "author": "Otix",
+  "author": "Diogo da Silva",
   "repository": "builtin",
   "min_app_version": "0.3.0",
   "permissions": ["worker:filesystem", "storage:local"],

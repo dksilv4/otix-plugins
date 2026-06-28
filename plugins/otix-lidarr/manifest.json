@@ -1,0 +1,70 @@
+{
+  "name": "Lidarr",
+  "version": "0.1.0",
+  "description": "Lidarr media management — multiple instance support",
+  "author": "Otix",
+  "repository": "",
+  "min_app_version": "0.1.0",
+  "permissions": ["network:external", "ui:settings", "events:subscribe"],
+  "services": [{ "type": "arr" }],
+  "config": {
+    "instances": {
+      "type": "list",
+      "label": "Lidarr Instances",
+      "description": "Configure one or more Lidarr server instances.",
+      "items": {
+        "id": {
+          "type": "string",
+          "label": "Instance ID",
+          "description": "e.g. lidarr-main"
+        },
+        "name": {
+          "type": "string",
+          "label": "Name",
+          "description": "e.g. Local Server"
+        },
+        "host": {
+          "type": "string",
+          "label": "Host",
+          "description": "e.g. localhost or 192.168.1.50"
+        },
+        "port": {
+          "type": "number",
+          "label": "Port",
+          "description": "e.g. 8686"
+        },
+        "apiKey": {
+          "type": "secret",
+          "label": "API Key",
+          "description": "Lidarr security API Key"
+        },
+        "useSsl": {
+          "type": "boolean",
+          "label": "Use SSL (HTTPS)",
+          "description": "Enable if using secure HTTPS connection"
+        },
+        "baseUrl": {
+          "type": "string",
+          "label": "Base URL Path",
+          "description": "e.g. /lidarr (leave blank if none)"
+        },
+        "qualityProfile": {
+          "type": "string",
+          "label": "Quality Profile ID or Name",
+          "description": "e.g. Standard or 1 (Quality Profile ID)"
+        },
+        "rootFolder": {
+          "type": "string",
+          "label": "Root Folder Path",
+          "description": "e.g. /data/media/music or D:\\Music"
+        },
+        "enabled": {
+          "type": "boolean",
+          "label": "Enabled",
+          "description": "Enable this instance"
+        }
+      }
+    }
+  },
+  "entry": { "main": "main.js" }
+}

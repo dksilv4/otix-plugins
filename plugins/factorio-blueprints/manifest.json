@@ -1,0 +1,51 @@
+{
+  "name": "Factorio Blueprints",
+  "version": "1.0.0",
+  "description": "Personal vault + community blueprint sharing for Factorio",
+  "author": "Otix",
+  "repository": "builtin",
+  "min_app_version": "0.5.0",
+  "permissions": ["storage:local", "api:proxy", "network:external"],
+  "config": {
+    "community_enabled": {
+      "type": "boolean",
+      "label": "Enable Community Sharing",
+      "default": true
+    }
+  },
+  "db": {
+    "tables": {
+      "blueprints": {
+        "columns": {
+          "id": "TEXT PRIMARY KEY",
+          "title": "TEXT NOT NULL DEFAULT ''",
+          "description": "TEXT NOT NULL DEFAULT ''",
+          "raw_string": "TEXT NOT NULL",
+          "parsed_data": "TEXT",
+          "tags": "TEXT NOT NULL DEFAULT '[]'",
+          "category": "TEXT NOT NULL DEFAULT ''",
+          "source": "TEXT NOT NULL DEFAULT 'local'",
+          "source_url": "TEXT",
+          "source_id": "TEXT",
+          "upvotes": "INTEGER NOT NULL DEFAULT 0",
+          "downvotes": "INTEGER NOT NULL DEFAULT 0",
+          "downloads": "INTEGER NOT NULL DEFAULT 0",
+          "version": "TEXT NOT NULL DEFAULT '1.0'",
+          "factorio_version": "TEXT NOT NULL DEFAULT '2.0'",
+          "author": "TEXT NOT NULL DEFAULT 'Unknown'",
+          "created_at": "TEXT NOT NULL DEFAULT (datetime('now'))",
+          "updated_at": "TEXT NOT NULL DEFAULT (datetime('now'))"
+        },
+        "indexes": [
+          "CREATE INDEX IF NOT EXISTS idx_blueprints_source ON blueprints(source)",
+          "CREATE INDEX IF NOT EXISTS idx_blueprints_category ON blueprints(category)",
+          "CREATE INDEX IF NOT EXISTS idx_blueprints_author ON blueprints(author)",
+          "CREATE INDEX IF NOT EXISTS idx_blueprints_created_at ON blueprints(created_at)"
+        ]
+      }
+    }
+  },
+  "entry": { "main": "main.js" },
+  "slots": [{ "location": "media/game/detail/tabs", "label": "Blueprints" }],
+  "services": [{ "type": "game-feature", "protocol": "blueprint" }]
+}

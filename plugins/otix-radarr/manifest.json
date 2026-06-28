@@ -1,0 +1,75 @@
+{
+  "name": "Radarr",
+  "version": "0.1.0",
+  "description": "Radarr media management — multiple instance support",
+  "author": "Otix",
+  "repository": "",
+  "min_app_version": "0.1.0",
+  "permissions": ["network:external", "ui:settings", "events:subscribe"],
+  "services": [{ "type": "arr" }],
+  "config": {
+    "instances": {
+      "type": "list",
+      "label": "Radarr Instances",
+      "description": "Configure one or more Radarr server instances.",
+      "items": {
+        "id": {
+          "type": "string",
+          "label": "Instance ID",
+          "description": "e.g. radarr-main"
+        },
+        "name": {
+          "type": "string",
+          "label": "Name",
+          "description": "e.g. Local Server"
+        },
+        "host": {
+          "type": "string",
+          "label": "Host",
+          "description": "e.g. localhost or 192.168.1.50"
+        },
+        "port": {
+          "type": "number",
+          "label": "Port",
+          "description": "e.g. 7878"
+        },
+        "apiKey": {
+          "type": "secret",
+          "label": "API Key",
+          "description": "Radarr security API Key"
+        },
+        "useSsl": {
+          "type": "boolean",
+          "label": "Use SSL (HTTPS)",
+          "description": "Enable if using secure HTTPS connection"
+        },
+        "baseUrl": {
+          "type": "string",
+          "label": "Base URL Path",
+          "description": "e.g. /radarr (leave blank if none)"
+        },
+        "qualityProfile": {
+          "type": "string",
+          "label": "Quality Profile ID or Name",
+          "description": "e.g. HD-1080p or 1 (Quality Profile ID)"
+        },
+        "rootFolder": {
+          "type": "string",
+          "label": "Root Folder Path",
+          "description": "e.g. /data/media/movies or D:\\Movies"
+        },
+        "autoRequestWatchlist": {
+          "type": "boolean",
+          "label": "Auto Request Watchlist",
+          "description": "Automatically request watchlisted items on this instance"
+        },
+        "enabled": {
+          "type": "boolean",
+          "label": "Enabled",
+          "description": "Enable this instance"
+        }
+      }
+    }
+  },
+  "entry": { "main": "main.js" }
+}

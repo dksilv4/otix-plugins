@@ -1,0 +1,22 @@
+{
+  "name": "FPS Capture",
+  "version": "0.1.0",
+  "description": "Captures FPS data using Intel PresentMon and logs play sessions. Default plugin — always enabled.",
+  "author": "Otix",
+  "repository": "",
+  "min_app_version": "0.1.0",
+  "permissions": [
+    "events:subscribe",
+    "storage:local"
+  ],
+  "config": {
+    "maxSessions": {
+      "type": "number",
+      "label": "Max sessions to keep",
+      "default": 100
+    }
+  },
+  "entry": {
+    "main": "main.js"
+  }
+}

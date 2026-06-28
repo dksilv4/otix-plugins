@@ -13,7 +13,34 @@ const BASIC_AUTH = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64
 const OAUTH_HOST = 'account-public-service-prod03.ol.epicgames.com';
 const LIBRARY_HOST = 'library-service.live.use1a.on.epicgames.com';
 const CATALOG_HOST = 'catalog-public-service-prod06.ol.epicgames.com';
+const STORE_HOST = 'store-site-backend-static.ak.epicgames.com';
 const UA = 'UELauncher/11.0.1-14907503+++Portal+Release-Live Windows/10.0.19041.1.256.64bit';
+
+// ── Free Games ─────────────────────────────────────────────────────────
+// Built dynamically in getFreeGamesUrl() using user's locale/country
+
+async function getFreeGamesUrl(ctx) {
+  // Try configured country, then system locale, fallback to US
+  let country = 'US';
+  let locale = 'en-US';
+  try {
+    // Check if user configured a country override
+    if (ctx) {
+      const cfgCountry = await ctx.config.get('free_games_country');
+      if (cfgCountry && typeof cfgCountry === 'string' && cfgCountry.trim()) {
+        const c = cfgCountry.trim().toUpperCase();
+        // Try to derive locale from country (en-{country} as reasonable default)
+        return '/freeGamesPromotions?locale=en-' + c + '&country=' + c + '&allowCountries=' + c;
+      }
+    }
+    // Auto-detect from system locale
+    const sysLocale = Intl.DateTimeFormat().resolvedOptions().locale;
+    const parts = sysLocale.split('-');
+    locale = sysLocale;
+    if (parts.length >= 2) country = parts[parts.length - 1].toUpperCase();
+  } catch {}
+  return '/freeGamesPromotions?locale=' + locale + '&country=' + country + '&allowCountries=' + country;
+}
 
 // ── HTTP Helpers ──────────────────────────────────────────────────────
 
@@ -64,6 +91,7 @@ function apiGet(host, path, token) {
     },
   });
 }
+
 
 // ── OAuth ─────────────────────────────────────────────────────────────
 
@@ -188,6 +216,133 @@ async function fetchCatalogItem(token, namespace, catalogItemId) {
   return data[catalogItemId] || null;
 }
 
+// ── Free Games API ─────────────────────────────────────────────────────
+
+async function fetchFreePromotions(ctx) {
+  const url = await getFreeGamesUrl(ctx);
+  const { status, data } = await fetchJson(STORE_HOST, url, { timeout: 15000 });
+  if (status !== 200) throw new Error('FreeGamesPromotions returned ' + status);
+  return data;
+}
+
+function extractFreeGames(promotionsData) {
+  const games = [], upcomingGames = [];
+  const now = Date.now();
+  if (!promotionsData?.data?.Catalog?.searchStore?.elements) return { games, upcomingGames };
+
+  for (const elem of promotionsData.data.Catalog.searchStore.elements) {
+    const p = elem.promotions;
+    if (!p) continue;
+
+    // discountPercentage = 0 means 100% off = FREE
+    const hasFree = (p.promotionalOffers || []).some(o =>
+      o.promotionalOffers?.some(po =>
+        po.discountSetting?.discountPercentage === 0 && now >= new Date(po.startDate).getTime() && now < new Date(po.endDate).getTime()
+      )
+    );
+    const hasUpcoming = (p.upcomingPromotionalOffers || []).some(o =>
+      o.promotionalOffers?.some(po =>
+        po.discountSetting?.discountPercentage === 0 && now < new Date(po.startDate).getTime()
+      )
+    );
+    if (!hasFree && !hasUpcoming) continue;
+
+    let freeEndDate = null, upcomingStartDate = null;
+    for (const o of p.promotionalOffers || [])
+      for (const po of o.promotionalOffers || [])
+        if (po.discountSetting?.discountPercentage === 0) { freeEndDate = po.endDate; break; }
+    for (const o of p.upcomingPromotionalOffers || [])
+      for (const po of o.promotionalOffers || [])
+        if (po.discountSetting?.discountPercentage === 0) { upcomingStartDate = po.startDate; freeEndDate = po.endDate; break; }
+
+    let origPrice = null;
+    if (elem.price?.totalPrice?.originalPrice) {
+      const c = elem.price.totalPrice.currencyCode || 'USD';
+      origPrice = (elem.price.totalPrice.originalPrice / 100).toFixed(2) + ' ' + c;
+    }
+
+    const poster = elem.keyImages?.find(i => i.type === 'DieselGameBoxTall')?.url
+      || elem.keyImages?.find(i => i.type === 'OfferImageWide')?.url || null;
+
+    const entry = {
+      id: elem.id, title: elem.title, namespace: elem.namespace, offerId: elem.id,
+      seller: elem.seller?.name || null, description: elem.description || null,
+      posterUrl: poster, urlSlug: elem.productSlug || null,
+      freeEndDate, originalPrice: origPrice,
+    };
+    if (hasFree) games.push(entry);
+    if (hasUpcoming) upcomingGames.push({ ...entry, freeStartDate: upcomingStartDate });
+  }
+  return { games, upcomingGames };
+}
+
+// ── Free Games Check ───────────────────────────────────────────────────
+
+let _freeCache = { games: [], upcoming: [], fetchedAt: 0 };
+
+async function checkFreeGames(ctx) {
+  ctx.logger.info('Checking Epic free games...');
+
+  let promoData;
+  try { promoData = await fetchFreePromotions(ctx); }
+  catch (err) { return { success: false, error: err.message, freeGames: [], upcomingGames: [] }; }
+
+  const { games: freeGames, upcomingGames } = extractFreeGames(promoData);
+  ctx.logger.info('Free: ' + freeGames.length + (upcomingGames.length ? ', upcoming: ' + upcomingGames.length : ''));
+
+  // Detect new (not in last check)
+  const lastRaw = await ctx.config.get('_last_free_games');
+  let lastGames = [];
+  try { if (lastRaw) lastGames = JSON.parse(lastRaw); } catch {}
+  const lastIds = new Set(lastGames.map(g => g.id));
+  const newGames = freeGames.filter(g => !lastIds.has(g.id));
+
+  // Check ownership if authenticated
+  const token = await _ensureToken(ctx);
+  if (!token) {
+    _freeCache = { games: freeGames, upcoming: upcomingGames, fetchedAt: Date.now() };
+    await ctx.config.set('_last_free_games', JSON.stringify(freeGames));
+    await ctx.config.set('_last_free_games_check', Date.now());
+    return { success: true, freeGames, upcomingGames, newGames, isAuthenticated: false, alreadyOwned: 0 };
+  }
+
+  let libraryItems;
+  try { libraryItems = await fetchAllLibraryItems(token); }
+  catch (err) {
+    ctx.logger.warn('Library fetch failed, can\'t cross-reference: ' + err.message);
+    _freeCache = { games: freeGames, upcoming: upcomingGames, fetchedAt: Date.now() };
+    await ctx.config.set('_last_free_games', JSON.stringify(freeGames));
+    await ctx.config.set('_last_free_games_check', Date.now());
+    return { success: true, freeGames, upcomingGames, newGames, isAuthenticated: true, alreadyOwned: 0 };
+  }
+
+  const owned = new Set();
+  for (const item of libraryItems) {
+    owned.add(item.namespace + ':' + (item.catalogItemId || item.offerId || item.id));
+    owned.add(item.namespace);
+  }
+  const unclaimed = freeGames.filter(g => !owned.has(g.namespace + ':' + g.offerId) && !owned.has(g.namespace));
+  const alreadyOwned = freeGames.length - unclaimed.length;
+  ctx.logger.info(unclaimed.length + ' unclaimed, ' + alreadyOwned + ' owned');
+
+  // Notify for new free games
+  if (newGames.length > 0) {
+    const notify = await ctx.config.get('free_games_notify');
+    if (notify !== false) {
+      const names = newGames.map(g => g.title).join(', ');
+      const isAuthed = true;
+      const body = unclaimed.filter(g => newGames.includes(g)).length + ' unclaimed: ' + names;
+      ctx.notifications.send({ title: '🎮 Epic Free Games', body });
+    }
+  }
+
+  _freeCache = { games: freeGames, upcoming: upcomingGames, fetchedAt: Date.now() };
+  await ctx.config.set('_last_free_games', JSON.stringify(freeGames));
+  await ctx.config.set('_last_free_games_check', Date.now());
+
+  return { success: true, freeGames, upcomingGames, newGames, isAuthenticated: true, alreadyOwned };
+}
+
 // ── Local Manifest Scan ──────────────────────────────────────────────
 
 async function scanLocalInstalls(ctx) {
@@ -304,9 +459,10 @@ async function _ensureToken(ctx) {
     }
 
     _currentToken = r.data.access_token;
+    const currentDisplayName = await ctx.config.get('display_name');
     await _storeAuth(
       ctx,
-      r.data.display_name || r.data.account_id || '',
+      r.data.display_name || currentDisplayName || r.data.account_id || '',
       r.data.account_id || '',
       r.data.refresh_token || rt
     );
@@ -502,30 +658,6 @@ async function performScan(ctx) {
   };
 }
 
-// ── Plugin Entry ──────────────────────────────────────────────────────
-
-function epicGamesPlugin(ctx) {
-  ctx.logger.info('Epic Games Scanner loaded');
-
-  // Auto-scan on startup if configured
-  ctx.config.get('auto_sync').then((autoSync) => {
-    if (autoSync !== false) { // default true
-      ctx.config.get('refresh_token').then((rt) => {
-        if (rt) {
-          ctx.logger.info('Auto-sync triggered on startup');
-          performScan(ctx).catch((err) =>
-            ctx.logger.error('Auto-scan failed: ' + err.message)
-          );
-        }
-      });
-    }
-  });
-
-  return () => {
-    ctx.logger.info('Epic Games Scanner unloaded');
-  };
-}
-
 // ── Data Methods ──────────────────────────────────────────────────────
 
 const dataMethods = {
@@ -674,6 +806,36 @@ const dataMethods = {
       });
     }
 
+    // ── Free games activity ────────────────────────────────────────────
+    const lastFreeCheck = await ctx.config.get('_last_free_games_check');
+    const freeStale = lastFreeCheck ? (now - lastFreeCheck) > 30 * 60 * 1000 : true;
+    const lastFreeRaw = await ctx.config.get('_last_free_games');
+    let cachedFree = [];
+    try { if (lastFreeRaw) cachedFree = JSON.parse(lastFreeRaw); } catch {}
+
+    if (cachedFree.length > 0 && !freeStale) {
+      const names = cachedFree.map(g => g.title).join(', ');
+      activities.push({
+        id: 'epic-free-games',
+        type: 'promotion',
+        title: cachedFree.length + ' free Epic game' + (cachedFree.length > 1 ? 's' : ''),
+        subtitle: names.length > 80 ? names.slice(0, 77) + '...' : names,
+        status: rt ? 'completed' : 'info',
+        timestamp: lastFreeCheck || now,
+        action: { label: rt ? 'Check' : 'Connect to Claim', method: rt ? 'free.check' : 'activity.connect' },
+      });
+    } else {
+      activities.push({
+        id: 'epic-free-games',
+        type: 'info',
+        title: 'Epic Free Games',
+        subtitle: cachedFree.length === 0 ? 'No free games right now' : 'Check for free games',
+        status: 'pending',
+        timestamp: now,
+        action: { label: 'Check Now', method: 'free.check' },
+      });
+    }
+
     return { activities: activities.length > 0 ? activities : [], label: 'Epic Games' };
   },
 
@@ -692,75 +854,131 @@ const dataMethods = {
     ctx.notifications.send({ title: 'Epic Games', body: 'Scan complete. Review your matches.' });
     return { success: true };
   },
-};
 
-// ── Top-level exports (Worker RPC dispatch) ───────────────────────────
+  // ── Free Games ──────────────────────────────────────────────────────
+  'free.check': async (ctx) => {
+    return checkFreeGames(ctx);
+  },
 
-module.exports = {
-  plugin: epicGamesPlugin,
-  data: dataMethods,
+  'free.match': async (ctx) => {
+    // Fetch free games
+    const check = await checkFreeGames(ctx);
+    if (!check.success || !check.freeGames.length)
+      return { success: true, matched: [] };
 
-  status: async (ctx) => {
-    try {
-      const rt = await _getRt(ctx);
-      if (!rt) return { connected: false, account_id: null, display_name: null, last_scan_total: 0, last_scan_at: null };
-
-      const token = await _ensureToken(ctx);
-      if (!token) return { connected: false, account_id: null, display_name: null, last_scan_total: 0, last_scan_at: null };
-
-      const accountId = await ctx.config.get('account_id');
-      const displayName = await ctx.config.get('display_name');
-
-      // Read persisted scan summary to avoid redundant re-scans on page mount
-      let lastScanTotal = 0;
-      let lastScanAt = null;
+    // Match each free game against the Otix catalog
+    const matched = [];
+    for (const game of check.freeGames) {
       try {
-        const raw = await ctx.config.get('_last_scan');
-        if (raw) {
-          const summary = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          lastScanTotal = summary.last_scan_total || 0;
-          lastScanAt = summary.last_scan_at || null;
-        }
-      } catch { /* ignore parse errors */ }
-
-      return {
-        connected: true,
-        account_id: accountId,
-        display_name: displayName,
-        last_scan_total: lastScanTotal,
-        last_scan_at: lastScanAt,
-      };
-    } catch {
-      return { connected: false, account_id: null, display_name: null, last_scan_total: 0, last_scan_at: null };
+        const matchReq = {
+          query_id: 'epic_free:' + game.id,
+          title: game.title,
+          developer: game.seller || null,
+          publisher: null,
+          platforms: ['epic'],
+          external_ids: [{ source: 'epic_free', id: game.id }],
+          media_type: 'game',
+          poster_url: game.posterUrl || null,
+        };
+        const matchRes = await ctx.api.post('/api/media/match', matchReq);
+        matched.push({
+          game,
+          match: matchRes?.auto_match || null,
+          candidates: matchRes?.candidates || [],
+        });
+      } catch (err) {
+        ctx.logger.warn('Match failed for ' + game.title + ': ' + (err.message || err));
+        matched.push({ game, match: null, candidates: [], error: err.message || 'unknown' });
+      }
     }
+    return { success: true, matched, ...check };
   },
 
   test: async (ctx) => {
     const rt = await _getRt(ctx);
-    if (!rt) return { success: false, message: 'Not connected. Sign in first.' };
+    if (!rt) return { passed: false, failures: ['Not connected. Sign in first.'] };
 
     try {
       const token = await _ensureToken(ctx);
-      if (!token) return { success: false, message: 'Auth expired. Sign in again.' };
-      return { success: true, message: 'Connected and authenticated' };
+      if (!token) return { passed: false, failures: ['Auth expired. Sign in again.'] };
+      return { passed: true };
     } catch (err) {
-      return { success: false, message: 'Connection check failed: ' + err.message };
+      return { passed: false, failures: ['Connection check failed: ' + err.message] };
     }
   },
 
-  // Re-export all data methods at top level
-  'auth.getLoginUrl': dataMethods['auth.getLoginUrl'],
-  'auth.handleCallback': dataMethods['auth.handleCallback'],
-  'auth.logout': dataMethods['auth.logout'],
-  'scan': dataMethods['scan'],
-  'scan.status': dataMethods['scan.status'],
-  'activity.poll': dataMethods['activity.poll'],
-  'activity.connect': dataMethods['activity.connect'],
-  'activity.viewResults': dataMethods['activity.viewResults'],
   slotRender: async (ctx, location) => ({
     type: 'scan',
     platform: 'epic',
     label: 'Epic Games',
     description: 'Scan and match your Epic Games library',
+    mediaTypes: ['games'],
+  }),
+};
+
+// ── Plugin exports ────────────────────────────────────────────────────
+
+module.exports = {
+  plugin: (ctx) => {
+    ctx.logger.info('Epic Games Scanner loaded');
+
+    // Auto-scan on startup if configured
+    ctx.config.get('auto_sync').then((autoSync) => {
+      if (autoSync !== false) {
+        ctx.config.get('refresh_token').then((rt) => {
+          if (rt) {
+            ctx.logger.info('Auto-sync triggered on startup');
+            performScan(ctx).catch((err) =>
+              ctx.logger.error('Auto-scan failed: ' + err.message)
+            );
+          }
+        });
+      }
+    });
+
+    // Auto-check free games on startup
+    ctx.config.get('free_games_auto_check').then((autoCheck) => {
+      if (autoCheck !== false) {
+        ctx.logger.info('Auto-checking free games...');
+        checkFreeGames(ctx).catch(err =>
+          ctx.logger.error('Free games check failed: ' + err.message)
+        );
+      }
+    });
+
+    return () => {
+      ctx.logger.info('Epic Games Scanner unloaded');
+    };
+  },
+
+  data: dataMethods,
+
+  status: async (ctx) => {
+    const rt = await ctx.config.get('refresh_token');
+    return {
+      connected: !!rt,
+      display_name: ctx.config.get('display_name') || null,
+      account_id: ctx.config.get('account_id') || null,
+    };
+  },
+
+  test: async (ctx) => {
+    const rt = await ctx.config.get('refresh_token');
+    if (!rt) return { passed: false, failures: ['Not connected. Sign in first.'] };
+    try {
+      const token = await _ensureToken(ctx);
+      if (!token) return { passed: false, failures: ['Auth expired. Sign in again.'] };
+      return { passed: true };
+    } catch (err) {
+      return { passed: false, failures: ['Connection check failed: ' + err.message] };
+    }
+  },
+
+  slotRender: async (ctx, location) => ({
+    type: 'scan',
+    platform: 'epic',
+    label: 'Epic Games',
+    description: 'Scan and match your Epic Games library',
+    mediaTypes: ['games'],
   }),
 };

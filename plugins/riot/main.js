@@ -54,8 +54,8 @@ module.exports = {
   },
   status: async (ctx) => ({ connected: true }),
   test: async (ctx) => {
-    for (const p of RIOT_PATHS) { if (await ctx.filesystem.access(p)) return { success: true, message: 'Riot directory found' }; }
-    return { success: true, message: 'No Riot installation detected' };
+    for (const p of RIOT_PATHS) { if (await ctx.filesystem.access(p)) return { passed: true }
+    return { passed: true };
   },
-  slotRender: async (ctx, location) => ({ type: 'scan', platform: 'riot', label: 'Riot Games', description: 'Scan local Riot Games installations' }),
+  slotRender: async (ctx, location) => ({ type: 'scan', platform: 'riot', label: 'Riot Games', description: 'Scan local Riot Games installations', mediaTypes: ['games'] }),
 };

@@ -90,3 +90,16 @@ module.exports = function(ctx) {
     }
   });
 };
+
+module.exports.test = async function(ctx) {
+  var config = ctx.config.getAll();
+  if (!config.apiKey) return { passed: false, failures: ['API key not configured'] };
+  try {
+    var url = sabnzbdUrl(config.host, config.port, config.useSsl, 'version', { apikey: config.apiKey });
+    var response = await ctx.fetch(url);
+    var data = await response.json();
+    return { passed: !!(data && data.version), failures: data && data.version ? undefined : ['No version response'] };
+  } catch(e) {
+    return { passed: false, failures: [e.message] };
+  }
+};

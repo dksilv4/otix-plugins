@@ -1,0 +1,52 @@
+{
+  "name": "Steam",
+  "version": "0.1.0",
+  "description": "Steam integration for Otix. Detects free-to-keep promotions, scans your Steam library, and cross-references ownership.",
+  "author": "Diogo da Silva",
+  "repository": "https://github.com/dksilv4/otix-plugins",
+  "min_app_version": "0.3.0",
+  "permissions": [
+    "network:external",
+    "storage:local",
+    "notifications",
+    "api:proxy"
+  ],
+  "config": {
+    "auto_check": {
+      "type": "boolean",
+      "label": "Auto-check free games on startup",
+      "default": true
+    },
+    "notify": {
+      "type": "boolean",
+      "label": "Notify when new free games detected",
+      "default": true
+    },
+    "country": {
+      "type": "string",
+      "label": "Country code for regional pricing",
+      "description": "Override country (e.g. PT, GB, DE). Empty = US default.",
+      "default": ""
+    },
+    "_last_free_games": {
+      "type": "string",
+      "label": "Free games cache (auto-managed)",
+      "advanced": true
+    },
+    "_last_free_games_check": {
+      "type": "number",
+      "label": "Free games last check (auto-managed)",
+      "advanced": true
+    }
+  },
+  "slots": [
+    {
+      "location": "activity:panel",
+      "label": "Steam"
+    }
+  ],
+  "services": ["free-games-provider"],
+  "entry": {
+    "main": "main.js"
+  }
+}

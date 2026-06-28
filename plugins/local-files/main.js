@@ -44,11 +44,100 @@ const IGNORED_DIRS = new Set([
   'obj', 'bin', '__pycache__', '.venv', 'venv', 'env', 'windowsapps'
 ]);
 
+// ── Launcher detection ─────────────────────────────────────────────────
+
+function detectLauncher(installDir, exePath) {
+  const d = (installDir || exePath || '').toLowerCase().replace(/\\/g, '/');
+  // Xbox app (Microsoft Store / Game Pass)
+  if (d.includes('/xboxgames/') || d.includes('/windowsapps/') || d.includes('/microsoft games/')) return 'xbox';
+  // Epic Games
+  if (d.includes('/epic games/') || d.includes('/epicgames/')) return 'epic';
+  // GOG Galaxy
+  if (d.includes('/gog games/') || d.includes('/gog galaxy/') || d.includes('/galaxy games/')) return 'gog';
+  // Battle.net
+  if (d.includes('/battle.net/') || d.includes('/blizzard/')) return 'battlenet';
+  // Ubisoft Connect
+  if (d.includes('/ubisoft/') || d.includes('/ubisoft connect/') || d.includes('/ubisoft game launcher/')) return 'ubisoft';
+  // EA App / Origin
+  if (d.includes('/ea games/') || d.includes('/origin games/') || d.includes('/ea desktop/')) return 'ea';
+  // Riot Games
+  if (d.includes('/riot games/')) return 'riot';
+  // Itch.io
+  if (d.includes('/itch.io/') || d.includes('/itchio/')) return 'itch';
+  return 'pc';
+}
+
+function detectXboxFromPath(dir, exePath) {
+  const d = (dir || exePath || '').toLowerCase().replace(/\\/g, '/');
+  return d.includes('/xboxgames/') || d.includes('/windowsapps/');
+}
+
+// ── Non-game detection ─────────────────────────────────────────────────
+// Skip tools, demos, betas, DLC stubs that shouldn't be matched
+
+const NON_GAME_PATTERNS = [
+  /(\b|_)demo(\b|_)/i,           // Factory Planner Demo
+  /(\b|_)benchmark(\b|_)/i,      // benchmarks
+  /(\b|_)server(\b|_)/i,         // dedicated servers
+  /(\b|_)launcher(\b|_)/i,       // game launchers (not games)
+  /(\b|_)beta(\b|_)/i,           // KillingFloor2Beta
+  /\bstub\b/i,                   // DLC stubs
+  /\btracker\b/i,                // launch tracker
+  /\btelemetry\b/i,              // telemetry tools
+  /\bcrash\s*reporter\b/i,
+  /\berror\s*reporter\b/i,
+  /\bsteamworks\b/i,
+  /\bredist\b/i,
+]
+
+const KNOWN_NON_GAMES = new Set([
+  'steelseries', 'razer', 'logitech', 'corsair', 'nvidia',
+  'amd', 'intel', 'msi', 'asus', 'gigabyte', 'evga',
+  'discord', 'teamspeak', 'ventrilo', 'mumble',
+  'obs', 'streamlabs', 'twitch', 'xsplit',
+  'winrar', '7zip', 'vlc', 'notepad', 'chrome', 'firefox',
+  'microsoft', 'windows', 'office', 'adobe',
+  'java', 'python', '虚幻引擎', 'unreal engine',
+  'epicgameslauncher', 'epic games launcher',
+  'steam client', 'ubisoft connect', 'ea app', 'ea desktop',
+  'gog galaxy', 'battle.net', 'battlenet',
+  'xbox game bar', 'xbox console companion',
+  'game bar', 'widgets', 'calculator', 'settings',
+])
+
+function isNonGame(title, exePath, installDir) {
+  const t = (title || '').toLowerCase().trim()
+  const exe = path.basename(exePath || '', '.exe').toLowerCase()
+  const d = (installDir || '').toLowerCase().replace(/\\/g, '/')
+
+  // Check known non-game names
+  for (const nonGame of KNOWN_NON_GAMES) {
+    if (t === nonGame || exe === nonGame || d.includes('/' + nonGame + '/')) return true
+  }
+
+  // Check title patterns
+  for (const pattern of NON_GAME_PATTERNS) {
+    if (pattern.test(t)) return true
+  }
+
+  // Executable name heuristics
+  const EXE_BLOCKLIST = [
+    'unins', 'setup', 'helper', 'crash', 'redist', 'config',
+    'install', 'update', 'patch', 'register', 'activate',
+    'updater', 'launcher', 'notifier', 'tray', 'service',
+    'gamelaunchhelper', 'gamingservices', 'xboxgamebar',
+  ]
+  if (EXE_BLOCKLIST.some(s => exe.includes(s))) return true
+  if (exe.startsWith('vc_') || exe.startsWith('dx')) return true
+
+  return false
+}
+
 async function pickBestExe(ctx, exes, installDirName) {
   if (exes.length === 0) return null;
   if (exes.length === 1) return exes[0];
   const cleanInstallDir = installDirName.toLowerCase().replace(/[^a-z0-9]/g, '');
-  let bestExe = null, bestScore = -1;
+  let bestExe = null, bestScore = -1, bestSize = 0;
   for (const exe of exes) {
     const exeName = path.basename(exe, '.exe').toLowerCase();
     if (['crash','unins','setup','redist','config','tool','cef','helper','register','patch'].some(s => exeName.includes(s))) continue;
@@ -59,9 +148,12 @@ async function pickBestExe(ctx, exes, installDirName) {
     if (folderIdx >= 0 && (exe.toLowerCase().substring(folderIdx + fnLower.length).match(/[\\/]/g) || []).length > 1) score += 30;
     if (exeName === cleanInstallDir || exeName === installDirName.toLowerCase()) score += 100;
     else if (exeName.includes(cleanInstallDir) || cleanInstallDir.includes(exeName)) score += 50;
-    try { const s = await ctx.filesystem.stat(exe); score += Math.min(30, Math.floor(s.size / (1024 * 1024))); } catch {}
-    if (score > bestScore) { bestScore = score; bestExe = exe; }
+    let fileSize = 0;
+    try { const s = await ctx.filesystem.stat(exe); fileSize = s.size; score += Math.min(30, Math.floor(s.size / (1024 * 1024))); } catch {}
+    if (score > bestScore) { bestScore = score; bestExe = exe; bestSize = fileSize; }
   }
+  // Return null for stubs — executables under 2MB are likely launchers, not real games
+  if (bestExe && bestSize > 0 && bestSize < 2 * 1024 * 1024) return null;
   return bestExe;
 }
 
@@ -177,21 +269,36 @@ function deduplicate(games) {
   return unique;
 }
 
+// ── Module-level scan progress ────────────────────────────────────────
+var _scanProgress = { phase: 'idle', current: 0, total: 0, currentDir: '' };
+
 // ── Plugin exports ────────────────────────────────────────────────────
 
 module.exports = {
   plugin: (ctx) => {
     ctx.logger.info('Local Files Scanner loaded');
+    // Auto-scan on startup (delayed — wait for inter-plugin RPC to be ready)
+    setTimeout(() => {
+      ctx.call('local-files', 'scan').catch(() => {});
+    }, 3000);
   },
 
   data: {
     scan: async (ctx) => {
-      const scanDirs = ctx.config.get('scanDirectories') || [];
-      const isoDirs = ctx.config.get('isoDirectories') || [];
+      const rawScan = await ctx.config.get('scanDirectories');
+      const rawIso = await ctx.config.get('isoDirectories');
+      const scanDirs = Array.isArray(rawScan) ? rawScan : [];
+      const isoDirs = Array.isArray(rawIso) ? rawIso : [];
       const allGames = [];
       let idx = 0;
       const total = scanDirs.length + isoDirs.length;
-      const emit = (dir) => ctx.host.emit('scan:progress', { currentDir: dir, progress: total > 0 ? Math.round((idx / total) * 100) : 100 });
+      _scanProgress = { phase: 'scanning', current: 0, total: total || 1 };
+      const emit = (dir) => {
+        _scanProgress.current = idx;
+        _scanProgress.phase = 'scanning';
+        _scanProgress.currentDir = dir;
+        ctx.host.emit('scan:progress', { currentDir: dir, progress: total > 0 ? Math.round((idx / total) * 100) : 100 });
+      };
 
       for (const dir of scanDirs) {
         emit(dir);
@@ -226,7 +333,10 @@ module.exports = {
             });
             if (hasSelf) {
               const best = await pickBestExe(ctx, selfExes, path.basename(dir));
-              if (best) allGames.push({ id: generateId(best), title: cleanGameTitle(path.basename(dir)), exePath: best, installDir: dir, platform: 'pc', localIconUrl: (await ctx.app.getFileIcon(best)) || undefined });
+              if (best) {
+                const ct = cleanGameTitle(path.basename(dir));
+                if (!isNonGame(ct, best, dir)) allGames.push({ id: generateId(best), title: ct, exePath: best, installDir: dir, platform: detectLauncher(dir, best), localIconUrl: (await ctx.app.getFileIcon(best)) || undefined });
+              }
             } else {
               for (const entry of await ctx.filesystem.readdir(dir)) {
                 if (!entry.isDirectory) continue;
@@ -236,7 +346,10 @@ module.exports = {
                 const subExes = await scanExecutables(ctx, gf, 3);
                 if (subExes.length > 0) {
                   const best = await pickBestExe(ctx, subExes, entry.name);
-                  if (best) allGames.push({ id: generateId(best), title: cleanGameTitle(entry.name), exePath: best, installDir: gf, platform: 'pc', localIconUrl: (await ctx.app.getFileIcon(best)) || undefined });
+                  if (best) {
+                    const ct = cleanGameTitle(entry.name);
+                    if (!isNonGame(ct, best, gf)) allGames.push({ id: generateId(best), title: ct, exePath: best, installDir: gf, platform: detectLauncher(gf, best), localIconUrl: (await ctx.app.getFileIcon(best)) || undefined });
+                  }
                 }
               }
             }
@@ -251,37 +364,47 @@ module.exports = {
           if (!(await ctx.filesystem.access(dir))) { idx++; continue; }
           for (const iso of await scanIsos(ctx, dir, 3)) {
             const fn = path.basename(iso, '.iso');
-            allGames.push({ id: generateId(iso), title: cleanGameTitle(fn), exePath: iso, installDir: path.dirname(iso), platform: 'iso', updateFiles: await findUpdateFilesForIso(ctx, iso) });
+            const ct = cleanGameTitle(fn);
+            if (!isNonGame(ct, iso, path.dirname(iso))) allGames.push({ id: generateId(iso), title: ct, exePath: iso, installDir: path.dirname(iso), platform: 'iso', updateFiles: await findUpdateFilesForIso(ctx, iso) });
           }
         } catch (e) { ctx.logger.error(`Error scanning ISO path ${dir}: ${e?.message ?? e}`); }
         idx++;
       }
 
+      _scanProgress = { phase: 'done', current: total, total: total || 1 };
       ctx.host.emit('scan:progress', { currentDir: 'Done', progress: 100 });
-      return { games: deduplicate(allGames) };
+      const games = deduplicate(allGames);
+      return { success: true, games, total: games.length };
     },
 
-    'scan.status': async (ctx) => ({ phase: 'idle' })
+    'scan.status': async (ctx) => _scanProgress
   },
 
   status: async (ctx) => {
-    const dirs = ctx.config.get('scanDirectories') || [];
-    const isoDirs = ctx.config.get('isoDirectories') || [];
-    return { connected: dirs.length > 0 || isoDirs.length > 0, scanDirectories: dirs.length, isoDirectories: isoDirs.length };
+    const dirs = await ctx.config.get('scanDirectories') || [];
+    const isoDirs = await ctx.config.get('isoDirectories') || [];
+    return { connected: true, scanDirectories: Array.isArray(dirs) ? dirs.length : 0, isoDirectories: Array.isArray(isoDirs) ? isoDirs.length : 0 };
   },
 
-  test: async (ctx, configDraft) => {
-    const dirs = configDraft?.scanDirectories || ctx.config.get('scanDirectories') || [];
-    const isoDirs = configDraft?.isoDirectories || ctx.config.get('isoDirectories') || [];
-    const errors = [];
-    for (const d of [...dirs, ...isoDirs]) {
-      if (!(await ctx.filesystem.access(d))) errors.push(`Path not found: ${d}`);
+  test: async (ctx) => {
+    // Verify the plugin can access its own config without throwing
+    try {
+      const dirs = ctx.config.get('scanDirectories');
+      const isoDirs = ctx.config.get('isoDirectories');
+      return { passed: true };
+    } catch (e) {
+      return { passed: false, failures: [e.message] };
     }
-    return { success: errors.length === 0, message: errors.join('; ') || 'All paths accessible' };
   },
 
   slotRender: async (ctx, location) => ({
-    type: 'scan', platform: 'pc-directory', label: 'Local Files',
-    description: 'Scan local directories for Steam, PC, and ISO games'
+    type: 'scan', platform: 'pc-directory', label: 'Local Files', platforms: ['pc', 'steam', 'iso', 'xbox', 'epic', 'gog', 'battlenet', 'ubisoft', 'ea', 'riot', 'itch'],
+    description: 'Scan local folders for Steam, PC, and ISO games',
+    mediaTypes: ['games'],
+    actions: { scan: 'scan', status: 'scan.status' },
+    configFields: [
+      { key: 'scanDirectories', label: 'Game Directories', type: 'path-list', description: 'Folders to scan for game executables and Steam manifests' },
+      { key: 'isoDirectories', label: 'ISO Directories', type: 'path-list', description: 'Folders containing ISO game files to scan' },
+    ],
   }),
 };

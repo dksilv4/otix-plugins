@@ -112,3 +112,16 @@ module.exports = function(ctx) {
     return { configured: !!config.apiKey };
   });
 };
+
+module.exports.test = async function(ctx) {
+  var config = ctx.config.getAll();
+  if (!config.apiKey) return { passed: false, failures: ['API key not configured'] };
+  try {
+    var url = 'https://api.nzbplanet.net/api?t=caps&apikey=' + encodeURIComponent(config.apiKey) + '&o=json';
+    var response = await ctx.fetch(url);
+    if (!response.ok) return { passed: false, failures: ['API returned ' + response.status] };
+    return { passed: true };
+  } catch(e) {
+    return { passed: false, failures: [e.message] };
+  }
+};
