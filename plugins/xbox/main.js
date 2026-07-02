@@ -86,5 +86,5 @@ module.exports = {
     for (const p of XBOX_PATHS) { if (await ctx.filesystem.access(p)) return { passed: true }
     return { passed: true };
   },
-  slotRender: async (ctx, location) => ({ type: 'scan', platform: 'xbox', label: 'Xbox / MS Store', description: 'Scan local Xbox and Microsoft Store game installations', mediaTypes: ['games'] }),
+  slotRender: async (ctx, location) => ({ type: 'scan', platform: 'xbox', label: 'Xbox / MS Store', description: 'Scan local Xbox and Microsoft Store game installations', mediaTypes: ['games'], actions: { scan: 'scan', status: 'scan.status' } }),
 };

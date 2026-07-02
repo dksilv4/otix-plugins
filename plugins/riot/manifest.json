@@ -1,6 +1,6 @@
 {
   "name": "Riot Games",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Scan your Riot Games library (League of Legends, Valorant, etc.) and match with Otix",
   "author": "Diogo da Silva",
   "repository": "builtin",

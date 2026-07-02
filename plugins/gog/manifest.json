@@ -1,6 +1,6 @@
 {
   "name": "GOG Galaxy",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Scan and match your GOG Galaxy library with Otix media items. Login via OAuth, scan your library, and automatically match against the Otix database.",
   "author": "Diogo da Silva",
   "repository": "builtin",

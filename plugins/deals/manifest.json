@@ -1,6 +1,6 @@
 {
   "name": "Deals",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Catch-all free game deal detector. Queries CheapShark API for 100%-off deals across 35 stores (GOG, Humble, Fanatical, etc.) and shows them in the discover feed.",
   "author": "Diogo da Silva",
   "repository": "https://github.com/dksilv4/otix-plugins",

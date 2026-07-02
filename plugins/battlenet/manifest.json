@@ -1,14 +1,15 @@
 {
   "name": "Battle.net",
-  "version": "0.1.0",
-  "description": "Scan your Battle.net game library and match with Otix",
+  "version": "1.0.0",
+  "description": "Sign in to scan your full Battle.net game library. Uses Blizzard's private API (same as the desktop client) to fetch all owned games — both installed and unclaimed.",
   "author": "Diogo da Silva",
   "repository": "builtin",
   "min_app_version": "0.3.0",
-  "permissions": ["worker:filesystem", "storage:local"],
+  "permissions": ["network:external", "worker:filesystem", "storage:local", "notifications"],
   "config": {
-    "auto_sync": { "type": "boolean", "label": "Auto-scan on startup", "default": true },
-    "mark_as_owned": { "type": "boolean", "label": "Mark matched games as owned", "default": true }
+    "auto_sync": { "type": "boolean", "label": "Auto-scan on login", "default": true },
+    "mark_as_owned": { "type": "boolean", "label": "Mark matched games as owned", "default": true },
+    "access_token": { "type": "secret", "label": "Access Token (manual fallback)", "description": "Paste a Battle.net access token directly if OAuth is not configured. Get one from the Blizzard API or web session.", "advanced": true }
   },
   "slots": [
     { "location": "library:scan", "label": "Battle.net" },

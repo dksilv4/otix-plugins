@@ -1,6 +1,6 @@
 {
   "name": "Local Files",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Scan local directories for Steam, PC, and ISO games",
   "author": "Diogo da Silva",
   "repository": "builtin",

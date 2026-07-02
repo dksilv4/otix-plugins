@@ -1,6 +1,6 @@
 {
   "name": "Download Pipeline",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Download orchestrator — discovers providers, coordinates search/download, post-processes and organizes media",
   "author": "Otix",
   "repository": "",

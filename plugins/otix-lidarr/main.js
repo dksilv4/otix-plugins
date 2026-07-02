@@ -125,7 +125,7 @@ var main = function(ctx) {
 
 main.status = async function(ctx) {
   var STORAGE_KEY = 'instances';
-  var instances = ctx.config.get(STORAGE_KEY) || [];
+  var instances = await ctx.config.get(STORAGE_KEY) || [];
   var enabled = instances.filter(function(i) { return i.enabled; });
   return {
     connected: enabled.length > 0,
@@ -136,7 +136,7 @@ main.status = async function(ctx) {
 
 main.test = async function(ctx) {
   var STORAGE_KEY = 'instances';
-  var instances = ctx.config.get(STORAGE_KEY) || [];
+  var instances = await ctx.config.get(STORAGE_KEY) || [];
   var enabled = instances.filter(function(i) { return i.enabled; });
   if (enabled.length === 0) {
     return { passed: false, failures: ['No enabled Lidarr instances to test.'] };

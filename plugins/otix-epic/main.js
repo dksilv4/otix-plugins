@@ -911,6 +911,7 @@ const dataMethods = {
     type: 'scan',
     platform: 'epic',
     label: 'Epic Games',
+    actions: { scan: 'scan', status: 'scan.status', login: 'auth.getLoginUrl', handleCallback: 'auth.handleCallback', logout: 'auth.logout' },
     description: 'Scan and match your Epic Games library',
     mediaTypes: ['games'],
   }),
@@ -955,10 +956,12 @@ module.exports = {
 
   status: async (ctx) => {
     const rt = await ctx.config.get('refresh_token');
+    const display_name = await ctx.config.get('display_name');
+    const account_id = await ctx.config.get('account_id');
     return {
       connected: !!rt,
-      display_name: ctx.config.get('display_name') || null,
-      account_id: ctx.config.get('account_id') || null,
+      display_name: display_name || null,
+      account_id: account_id || null,
     };
   },
 
@@ -978,6 +981,7 @@ module.exports = {
     type: 'scan',
     platform: 'epic',
     label: 'Epic Games',
+    actions: { scan: 'scan', status: 'scan.status', login: 'auth.getLoginUrl', handleCallback: 'auth.handleCallback', logout: 'auth.logout' },
     description: 'Scan and match your Epic Games library',
     mediaTypes: ['games'],
   }),

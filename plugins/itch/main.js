@@ -64,5 +64,5 @@ module.exports = {
     if (await ctx.filesystem.access(ITCH_DIR)) return { passed: true };
     return { passed: true };
   },
-  slotRender: async (ctx, location) => ({ type: 'scan', platform: 'itch', label: 'Itch.io', description: 'Scan local Itch.io game installations', mediaTypes: ['games'] }),
+  slotRender: async (ctx, location) => ({ type: 'scan', platform: 'itch', label: 'Itch.io', description: 'Scan local Itch.io game installations', mediaTypes: ['games'], actions: { scan: 'scan', status: 'scan.status' } }),
 };

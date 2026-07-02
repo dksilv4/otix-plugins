@@ -1,6 +1,6 @@
 {
   "name": "Steam",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Steam integration for Otix. Detects free-to-keep promotions, scans your Steam library, and cross-references ownership.",
   "author": "Diogo da Silva",
   "repository": "https://github.com/dksilv4/otix-plugins",

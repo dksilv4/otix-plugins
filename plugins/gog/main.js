@@ -249,17 +249,20 @@ module.exports = {
   data: dataMethods,
 
   status: async (ctx) => {
-    const connected = !!ctx.config.get('refresh_token');
+    const rt = await ctx.config.get('refresh_token');
+    const display_name = await ctx.config.get('display_name');
+    const last_scan_total = await ctx.config.get('_last_scan_total');
+    const last_scan_at = await ctx.config.get('_last_scan_at');
     return {
-      connected,
-      display_name: ctx.config.get('display_name') || null,
-      last_scan_total: ctx.config.get('_last_scan_total') || null,
-      last_scan_at: ctx.config.get('_last_scan_at') || null,
+      connected: !!rt,
+      display_name: display_name || null,
+      last_scan_total: last_scan_total || null,
+      last_scan_at: last_scan_at || null,
     };
   },
 
   test: async (ctx, configDraft) => {
-    const token = configDraft?.access_token || ctx.config.get('access_token');
+    const token = configDraft?.access_token || await ctx.config.get('access_token');
     if (!token) return { passed: false, failures: ['Not authenticated — log in with GOG first'] };
     const res = await apiGet(API_HOST, '/userData.json', token);
     if (res.status === 200) return { passed: true };
@@ -270,6 +273,7 @@ module.exports = {
     type: 'scan', platform: 'gog', label: 'GOG Galaxy',
     description: 'Scan your GOG Galaxy library',
     mediaTypes: ['games'],
+    actions: { scan: 'scan', status: 'scan.status', login: 'auth.getLoginUrl', handleCallback: 'auth.handleCallback', logout: 'auth.logout' },
   }),
 };
 
@@ -283,17 +287,20 @@ module.exports = {
   data: dataMethods,
 
   status: async (ctx) => {
-    const connected = !!ctx.config.get('refresh_token');
+    const rt = await ctx.config.get('refresh_token');
+    const display_name = await ctx.config.get('display_name');
+    const last_scan_total = await ctx.config.get('_last_scan_total');
+    const last_scan_at = await ctx.config.get('_last_scan_at');
     return {
-      connected,
-      display_name: ctx.config.get('display_name') || null,
-      last_scan_total: ctx.config.get('_last_scan_total') || null,
-      last_scan_at: ctx.config.get('_last_scan_at') || null,
+      connected: !!rt,
+      display_name: display_name || null,
+      last_scan_total: last_scan_total || null,
+      last_scan_at: last_scan_at || null,
     };
   },
 
   test: async (ctx, configDraft) => {
-    const token = configDraft?.access_token || ctx.config.get('access_token');
+    const token = configDraft?.access_token || await ctx.config.get('access_token');
     if (!token) return { passed: false, failures: ['Not authenticated — log in with GOG first'] };
     const res = await apiGet(API_HOST, '/userData.json', token);
     if (res.status === 200) return { passed: true };
@@ -304,6 +311,7 @@ module.exports = {
     type: 'scan', platform: 'gog', label: 'GOG Galaxy',
     description: 'Scan your GOG Galaxy library',
     mediaTypes: ['games'],
+    actions: { scan: 'scan', status: 'scan.status', login: 'auth.getLoginUrl', handleCallback: 'auth.handleCallback', logout: 'auth.logout' },
   }),
 };
 
